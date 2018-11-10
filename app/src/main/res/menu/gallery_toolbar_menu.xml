@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+		xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<item android:id="@+id/action_refresh"
+			android:title="Refresh"
+			android:orderInCategory="1"
+			app:showAsAction="never"/>
+	<item android:id="@+id/action_start_service"
+			android:title="Start Service"
+			android:orderInCategory="2"
+			app:showAsAction="never"/>
+	<item android:id="@+id/action_stop_service"
+			android:title="Stop Service"
+			android:orderInCategory="3"
+			app:showAsAction="never"/>
+
+</menu>

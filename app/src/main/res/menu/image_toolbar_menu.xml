@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+		xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<item android:id="@+id/action_select"
+			android:title="Select best"
+			android:icon="@drawable/ic_check_black_24dp"
+			android:orderInCategory="1"
+			app:showAsAction="always"/>
+
+	<item android:id="@+id/action_mark_best"
+			android:title="Mark best"
+			android:icon="@drawable/ic_star_black_24dp"
+			android:orderInCategory="2"
+			app:showAsAction="always"/>
+</menu>

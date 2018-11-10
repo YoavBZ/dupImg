@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "63149833795",
+    "firebase_url": "https://ml-gallery.firebaseio.com",
+    "project_id": "ml-gallery",
+    "storage_bucket": "ml-gallery.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:63149833795:android:b6b12881c32f51c5",
+        "android_client_info": {
+          "package_name": "yoavbz.galleryml"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "63149833795-a42rj34n460lt0t8gp58jh7tvsf24u8s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "yoavbz.galleryml",
+            "certificate_hash": "f63721900ded735ba6395fbf827c7d10c60fc0b7"
+          }
+        },
+        {
+          "client_id": "63149833795-1vcprlqonshe2naungm209p6vo9vlesr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoR6wUeyHjerHpo45aZTqkSeCZNV575UQ"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "63149833795-1vcprlqonshe2naungm209p6vo9vlesr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
