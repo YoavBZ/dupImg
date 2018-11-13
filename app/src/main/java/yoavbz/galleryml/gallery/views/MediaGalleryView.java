@@ -20,7 +20,7 @@ public class MediaGalleryView extends RecyclerView {
 
 	public static final int HORIZONTAL = 0;
 	public static final int VERTICAL = 1;
-	public static final int DEFAULT = 6131;
+	public static final int DEFAULT_SIZE = 6131;
 
 	private final Context mContext;
 	private GridImagesAdapter mAdapter;
@@ -55,8 +55,8 @@ public class MediaGalleryView extends RecyclerView {
 		mSpanCount = a.getInteger(R.styleable.MediaGalleryView_span_count, 2);
 		mPlaceHolder = a.getDrawable(R.styleable.MediaGalleryView_place_holder);
 		mOrientation = a.getInt(R.styleable.MediaGalleryView_gallery_orientation, VERTICAL);
-		mWidth = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_width, DEFAULT);
-		mHeight = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_height, DEFAULT);
+		mWidth = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_width, DEFAULT_SIZE);
+		mHeight = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_height, DEFAULT_SIZE);
 		if (mPlaceHolder == null) {
 			mPlaceHolder = ContextCompat.getDrawable(mContext, R.drawable.media_gallery_placeholder);
 		}

@@ -54,7 +54,6 @@ public class ImageClusterActivity extends AppCompatActivity implements ViewPager
 		Bundle bundle = intent.getExtras();
 		dataSet = bundle.getParcelableArrayList(Constants.IMAGES);
 		title = bundle.getString(Constants.TITLE);
-//		selectedImagePosition = bundle.getInt(Constants.SELECTED_IMAGE_POSITION, 0);
 		selectedImagePosition = 0;
 	}
 
@@ -71,7 +70,7 @@ public class ImageClusterActivity extends AppCompatActivity implements ViewPager
 		getSupportActionBar().setHomeButtonEnabled(true);
 
 		mViewPager = findViewById(R.id.pager);
-		imagesHorizontalList = findViewById(R.id.imagesHorizontalList);
+		imagesHorizontalList = findViewById(R.id.horizontal_list);
 		RelativeLayout mMainLayout = findViewById(R.id.mainLayout);
 		mMainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.white));
 	}

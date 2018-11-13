@@ -1,6 +1,6 @@
 package yoavbz.galleryml;
 
-import android.app.Activity;
+import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
@@ -23,8 +23,8 @@ public class ImageClassifier {
 	private int inputSize;
 	private List<String> labelList;
 
-	ImageClassifier(Activity activity, String modelPath, String labelPath, int inputSize) throws IOException {
-		AssetManager assetManager = activity.getAssets();
+	public ImageClassifier(Context context, String modelPath, String labelPath, int inputSize) throws IOException {
+		AssetManager assetManager = context.getAssets();
 		interpreter = new Interpreter(loadModelFile(assetManager, modelPath));
 		labelList = loadLabelList(assetManager, labelPath);
 		this.inputSize = inputSize;

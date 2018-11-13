@@ -28,10 +28,9 @@
 			android:paddingRight="16dp"
 			android:src="@drawable/ic_menu_gallery"/>
 
-
-	<Switch
+	<android.support.v7.widget.SwitchCompat
 			android:id="@+id/background_enabled"
-			android:text="Monitor"
+			android:text="Background Monitor"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:gravity="center"

@@ -43,24 +43,25 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	@Override
 	public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
 		holder.itemView.setOnClickListener(view -> {
-			if (mClickListener == null) {
-				return;
+			if (mClickListener != null) {
+				mClickListener.onImageClicked(holder.getAdapterPosition());
 			}
-			mClickListener.onImageClicked(holder.getAdapterPosition());
 		});
-		ViewGroup.LayoutParams params = holder.imageView.getLayoutParams();
-		if (mHeight != -1 && mHeight != MediaGalleryView.DEFAULT)
+		ViewGroup.LayoutParams params = holder.clusterThumbnail.getLayoutParams();
+		if (mHeight != -1 && mHeight != MediaGalleryView.DEFAULT_SIZE) {
 			params.height = mHeight;
-		if (mWidth != -1 && mWidth != MediaGalleryView.DEFAULT)
+		}
+		if (mWidth != -1 && mWidth != MediaGalleryView.DEFAULT_SIZE) {
 			params.width = mWidth;
-		holder.imageView.setLayoutParams(params);
+		}
+		holder.clusterThumbnail.setLayoutParams(params);
 		ImageCluster cluster = mDataset.get(holder.getAdapterPosition());
-		String path = cluster.getFirstImage().getPath();
+		String path = cluster.getFirstImage().getPath().toString();
 		Glide.with(mContext)
-				.load(path)
-				.apply(new RequestOptions().placeholder(imgPlaceHolderResId))
-				.into(holder.imageView);
-		holder.imagesNum.setText(String.valueOf(cluster.size()));
+		     .load(path)
+		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
+		     .into(holder.clusterThumbnail);
+		holder.clusterSize.setText(String.valueOf(cluster.size()));
 	}
 
 	public void setImgPlaceHolder(Drawable imgPlaceHolderResId) {
@@ -82,13 +83,13 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	}
 
 	class ViewHolder extends RecyclerView.ViewHolder {
-		public ImageView imageView;
-		public TextView imagesNum;
+		ImageView clusterThumbnail;
+		TextView clusterSize;
 
 		ViewHolder(View itemView) {
 			super(itemView);
-			imageView = itemView.findViewById(R.id.image_view);
-			imagesNum = itemView.findViewById(R.id.images_num);
+			clusterThumbnail = itemView.findViewById(R.id.cluster_thumbnail);
+			clusterSize = itemView.findViewById(R.id.cluster_size);
 		}
 	}
 }

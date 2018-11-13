@@ -2,10 +2,8 @@ package yoavbz.galleryml.gallery.cluster;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Log;
 import yoavbz.galleryml.gallery.Image;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -15,11 +13,6 @@ public class ImageCluster implements Parcelable {
 	private ArrayList<Image> images = new ArrayList<>();
 
 	public ImageCluster() {
-	}
-
-	public ImageCluster(Image firstImage) {
-		start = firstImage.getDateTaken();
-		addImage(firstImage);
 	}
 
 	public void addImage(Image image) {
@@ -53,12 +46,8 @@ public class ImageCluster implements Parcelable {
 	// --- Parcelable interface function ---
 
 	private ImageCluster(Parcel in) {
-		try {
-			start = Image.dateFormat.parse(in.readString());
-			end = Image.dateFormat.parse(in.readString());
-		} catch (ParseException e) {
-			Log.e("Image", "Got an exception while constructing ImageCluster", e);
-		}
+		start = new Date(in.readLong());
+		end = new Date(in.readLong());
 		images = new ArrayList<>();
 		in.readTypedList(images, Image.CREATOR);
 	}
@@ -80,8 +69,8 @@ public class ImageCluster implements Parcelable {
 
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
-		dest.writeString(Image.dateFormat.format(start));
-		dest.writeString(Image.dateFormat.format(end.clone()));
+		dest.writeLong(start.getTime());
+		dest.writeLong(end.getTime());
 		dest.writeTypedList(images);
 	}
 }

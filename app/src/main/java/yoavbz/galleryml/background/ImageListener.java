@@ -1,19 +1,33 @@
 package yoavbz.galleryml.background;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.*;
+import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
+import yoavbz.galleryml.ImageClassifier;
+import yoavbz.galleryml.database.ImageDao;
+import yoavbz.galleryml.database.ImageDatabase;
+import yoavbz.galleryml.gallery.Image;
 
+import java.io.IOException;
 import java.nio.file.Paths;
 
 public class ImageListener extends Service {
 
 	private static final String TAG = "ImageListener";
 	NewImageObserver observer;
-	private static boolean isRunning = false;
+
+	public static boolean isRunning(Context context) {
+		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+		boolean isRunning = pref.getBoolean("isRunning", false);
+		Log.d(TAG, "isRunning " + isRunning);
+		return isRunning;
+	}
 
 	@Nullable
 	@Override
@@ -24,25 +38,24 @@ public class ImageListener extends Service {
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
 		Log.d(TAG, "OnStartCommand");
-		isRunning = true;
+		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+		pref.edit().putBoolean("isRunning", true).apply();
+
 		String dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
 		String path = Paths.get(dcim, "Camera").toString();
 		int mask = FileObserver.CREATE | FileObserver.DELETE | FileObserver.MOVED_TO | FileObserver.MOVED_FROM;
 		observer = new NewImageObserver(path, mask);
 		observer.startWatching();
+
 		return Service.START_NOT_STICKY;
 	}
 
 	@Override
 	public void onDestroy() {
 		Log.d(TAG, "OnDestroy");
-		isRunning = false;
+		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+		pref.edit().putBoolean("isRunning", false).apply();
 		super.onDestroy();
-	}
-
-	public static boolean isRunning() {
-		Log.d(TAG, "isRunning " + isRunning);
-		return isRunning;
 	}
 
 	/**
@@ -51,9 +64,18 @@ public class ImageListener extends Service {
 	private class NewImageObserver extends FileObserver {
 
 		private static final String TAG = "ImageObserver";
+		private ImageClassifier classifier = null;
+		private ImageDao db;
 
 		NewImageObserver(String path, int mask) {
 			super(path, mask);
+			db = ImageDatabase.getAppDatabase(getApplicationContext()).imageDao();
+			try {
+				classifier = new ImageClassifier(ImageListener.this, "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
+				                                 224);
+			} catch (IOException e) {
+				Log.e(TAG, "Couldn't build image classifier: " + e);
+			}
 			Log.d(TAG, "Initiating NewImageObserver..");
 		}
 
@@ -63,16 +85,22 @@ public class ImageListener extends Service {
 			switch (event) {
 				case FileObserver.CREATE:
 				case FileObserver.MOVED_TO:
-					// TODO: Create new Image and save in the DB
-					handler.post(() -> Toast.makeText(getApplicationContext(), "New Image!", Toast.LENGTH_SHORT)
-							.show());
 					Log.d(TAG, "New image found!");
+					Image image = new Image(path);
+					if (image.getDateTaken() != null) {
+						image.calculateFeatureVector(classifier);
+						db.insert(image);
+						handler.post(() -> Toast.makeText(ImageListener.this, "New Image!", Toast.LENGTH_SHORT).show());
+					} else {
+						Log.w(TAG, "Got an exception while parsing image date");
+					}
 					break;
 				case FileObserver.DELETE:
 				case FileObserver.MOVED_FROM:
-					// TODO: Create new Image and save in the DB
-					handler.post(() -> Toast.makeText(getApplicationContext(), "Image was removed!!", Toast.LENGTH_SHORT)
-							.show());
+					db.delete(path);
+					handler.post(
+							() -> Toast.makeText(ImageListener.this, "Image was removed!!",
+							                     Toast.LENGTH_SHORT).show());
 					Log.d(TAG, "An image was removed!");
 					break;
 			}

@@ -1,80 +1,93 @@
 package yoavbz.galleryml.gallery;
 
-import android.arch.persistence.room.*;
+import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.PrimaryKey;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.media.ExifInterface;
 import android.util.Log;
+import org.apache.commons.math3.ml.clustering.DoublePoint;
+import yoavbz.galleryml.ImageClassifier;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 
 @Entity(tableName = "images")
-public class Image implements Comparable, Parcelable {
+public class Image implements Parcelable {
 
-	@PrimaryKey private Path path;
+	@PrimaryKey
+	@NonNull
+	private Path path;
 	private Date dateTaken;
-	private double[] featureVector;
-	public static DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+	private DoublePoint point;
 
 	public Image(Path path) {
 		this.path = path;
 		try {
 			ExifInterface exif = new ExifInterface(this.path.toString());
 			String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
+			DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 			dateTaken = dateFormat.parse(date);
-		} catch (ParseException | IOException e) {
-			Log.e("Image", "Got an exception while constructing Image", e);
 		} catch (Exception e) {
-			Log.e("Image", "Failed fetching date of image! Was it taken by camera?");
+			Log.e("Image", "Got an exception while constructing image");
 		}
 	}
 
-	public String getPath() {
-		return path.toString();
+	public Image(String path) {
+		this(Paths.get(path));
+	}
+
+	public Path getPath() {
+		return path;
+	}
+
+	public void setPath(Path path) {
+		this.path = path;
 	}
 
 	public String getFileName() {
 		return path.getFileName().toString();
 	}
 
-	public void setFeatureVector(double[] featureVector) {
-		this.featureVector = featureVector;
-	}
-
-	public double[] getFeatureVector() {
-		return featureVector;
-	}
-
 	public Date getDateTaken() {
 		return dateTaken;
 	}
 
-	// --- Comparable interface function ---
-	@Override
-	public int compareTo(@NonNull Object otherImage) {
-		if (dateTaken == null) {
-			return -1;
-		}
-		return dateTaken.compareTo(((Image) otherImage).dateTaken);
+	public void setDateTaken(Date dateTaken) {
+		this.dateTaken = dateTaken;
 	}
 
-	// --- Parcelable interface function ---
+	public DoublePoint getPoint() {
+		return point;
+	}
+
+
+	public void setPoint(DoublePoint point) {
+		this.point = point;
+	}
+
+	/**
+	 * Calculating the feature vector using a given classifier
+	 * @param classifier The classifier to run the TensorFlow interpreter for calculating feature vector
+	 */
+	public void calculateFeatureVector(ImageClassifier classifier) {
+		Bitmap bitmap = BitmapFactory.decodeFile(path.toString());
+		bitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, false);
+		point = new DoublePoint(classifier.recognizeImage(bitmap));
+	}
+
+	// --- Parcelable interface functions ---
+
 	private Image(Parcel in) {
-		this.path = Paths.get(in.readString());
-		try {
-			this.dateTaken = dateFormat.parse(in.readString());
-		} catch (ParseException e) {
-			Log.e("Image", "Got an exception while constructing Image", e);
-		}
-		this.featureVector = in.createDoubleArray();
+		path = Paths.get(in.readString());
+		dateTaken = new Date(in.readLong());
+		point = new DoublePoint(in.createDoubleArray());
 	}
 
 	public static final Creator<Image> CREATOR = new Creator<Image>() {
@@ -95,8 +108,7 @@ public class Image implements Comparable, Parcelable {
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
 		dest.writeString(path.toString());
-		dest.writeString(dateFormat.format(dateTaken));
-		dest.writeDoubleArray(featureVector);
+		dest.writeLong(dateTaken.getTime());
+		dest.writeDoubleArray(point.getPoint());
 	}
-
 }

@@ -9,27 +9,29 @@
 		tools:showIn="@layout/app_bar_main"
 		tools:context=".MainActivity">
 
-	<ProgressBar
-			android:id="@+id/classification_progress"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:indeterminate="false"
-			android:progress="0"
-			app:layout_constraintTop_toBottomOf="parent"
-			app:layout_constraintBottom_toTopOf="parent"
-			style="@android:style/Widget.ProgressBar.Horizontal"/>
-
 	<TextView
-			android:id="@+id/text_no_images"
+			android:id="@+id/content_text"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:text="No images"
 			android:gravity="center"
 			app:layout_constraintLeft_toLeftOf="parent"
 			app:layout_constraintRight_toRightOf="parent"
 			app:layout_constraintTop_toTopOf="parent"
 			app:layout_constraintBottom_toBottomOf="parent"
 			android:visibility="gone"/>
+
+	<ProgressBar
+			android:id="@+id/classification_progress"
+			android:layout_width="250dp"
+			android:layout_height="match_parent"
+			android:indeterminate="false"
+			android:progress="0"
+			android:progressTint="@color/colorPrimary"
+			app:layout_constraintTop_toBottomOf="parent"
+			app:layout_constraintBottom_toTopOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			style="@style/Widget.AppCompat.ProgressBar.Horizontal"/>
 
 	<yoavbz.galleryml.gallery.views.MediaGalleryView
 			android:id="@+id/gallery"
