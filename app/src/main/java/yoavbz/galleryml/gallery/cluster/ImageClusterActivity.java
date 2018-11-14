@@ -12,13 +12,13 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
 import android.text.Spanned;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 import yoavbz.galleryml.R;
-import yoavbz.galleryml.gallery.Constants;
 import yoavbz.galleryml.gallery.Image;
 import yoavbz.galleryml.gallery.cluster.adapter.HorizontalListAdapter;
 import yoavbz.galleryml.gallery.cluster.adapter.ViewPagerAdapter;
@@ -28,15 +28,17 @@ import java.util.ArrayList;
 /**
  * The type Media gallery activity.
  */
-public class ImageClusterActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImgClick {
+public class ImageClusterActivity extends AppCompatActivity
+		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClick {
 
-	private ViewPager mViewPager;
-	private RecyclerView imagesHorizontalList;
-	private HorizontalListAdapter hAdapter;
+	private static final String TAG = "ImageClusterActivity";
 	protected Toolbar mToolbar;
 	protected ArrayList<Image> dataSet;
 	protected String title;
 	protected int selectedImagePosition;
+	private ViewPager mViewPager;
+	private RecyclerView imagesHorizontalList;
+	private HorizontalListAdapter hAdapter;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -49,11 +51,13 @@ public class ImageClusterActivity extends AppCompatActivity implements ViewPager
 
 	private void initValues() {
 		Intent intent = getIntent();
-		if (intent == null || intent.getExtras() == null)
+		if (intent == null || intent.getExtras() == null) {
 			return;
+		}
 		Bundle bundle = intent.getExtras();
-		dataSet = bundle.getParcelableArrayList(Constants.IMAGES);
-		title = bundle.getString(Constants.TITLE);
+		dataSet = bundle.getParcelableArrayList("IMAGES");
+		Log.d(TAG, "dataSet: " + dataSet.toString());
+		title = bundle.getString("TITLE");
 		selectedImagePosition = 0;
 	}
 
@@ -104,17 +108,24 @@ public class ImageClusterActivity extends AppCompatActivity implements ViewPager
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		// Fetching selected item
-		HorizontalListAdapter.ViewHolder bestItem = (HorizontalListAdapter.ViewHolder) imagesHorizontalList.findViewHolderForAdapterPosition(hAdapter.mBestItem);
+		HorizontalListAdapter.ViewHolder bestItem = (HorizontalListAdapter.ViewHolder) imagesHorizontalList.findViewHolderForAdapterPosition(
+				hAdapter.mBestItem);
 
 		if (item.getItemId() == R.id.action_select && bestItem != null) {
-			Spanned message = Html.fromHtml("Your choice: <b>" + bestItem.filename + "</b><br>Are you sure you want to delete the rest of the images?");
-			new AlertDialog.Builder(this).setTitle("Delete Duplicates?")
+			Spanned message = Html.fromHtml("Your choice: <b>" + bestItem.filename +
+					                                "</b><br>Are you sure you want to delete the rest of the images?",
+			                                0);
+			new AlertDialog.Builder(this)
+					.setTitle("Delete Duplicates?")
 					.setMessage(message)
 					.setPositiveButton("DELETE", (dialog, which) -> {
 						Toast.makeText(this, "Deleting duplicates..", Toast.LENGTH_LONG).show();
+						// TODO: Return files to delete
+						dataSet.remove(hAdapter.mBestItem);
+						Log.d(TAG, "dataSet after delete: " + dataSet.toString());
 						// Retuning the selected item filename
 						Intent data = new Intent();
-						data.putExtra("filename", bestItem.filename);
+						data.putExtra("toDelete", bestItem.filename);
 						setResult(RESULT_OK, data);
 						finish();
 					})
@@ -124,14 +135,15 @@ public class ImageClusterActivity extends AppCompatActivity implements ViewPager
 			// Refreshing action bar menu
 			invalidateOptionsMenu();
 			// Fetching current item
-			HorizontalListAdapter.ViewHolder currentItem = (HorizontalListAdapter.ViewHolder) imagesHorizontalList.findViewHolderForAdapterPosition(mViewPager
-					.getCurrentItem());
+			HorizontalListAdapter.ViewHolder currentItem = (HorizontalListAdapter.ViewHolder) imagesHorizontalList
+					.findViewHolderForAdapterPosition(mViewPager.getCurrentItem());
 			// Replacing current selected item with the new one
 			if (bestItem != null) {
 				bestItem.image_best.setVisibility(View.GONE);
 			}
 			currentItem.image_best.setVisibility(View.VISIBLE);
 			// Updating selected item
+			// TODO: Handle multiple selected item
 			hAdapter.setBestItem(currentItem.filename);
 		}
 		return super.onOptionsItemSelected(item);

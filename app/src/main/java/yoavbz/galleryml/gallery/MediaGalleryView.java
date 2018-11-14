@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery.views;
+package yoavbz.galleryml.gallery;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -10,7 +10,6 @@ import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import yoavbz.galleryml.R;
 import yoavbz.galleryml.gallery.cluster.ImageCluster;
-import yoavbz.galleryml.gallery.views.adapter.GridImagesAdapter;
 
 import java.util.ArrayList;
 

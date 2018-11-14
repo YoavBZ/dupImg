@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery.views.adapter;
+package yoavbz.galleryml.gallery;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -14,7 +14,6 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import yoavbz.galleryml.R;
 import yoavbz.galleryml.gallery.cluster.ImageCluster;
-import yoavbz.galleryml.gallery.views.MediaGalleryView;
 
 import java.util.ArrayList;
 

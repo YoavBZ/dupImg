@@ -29,11 +29,10 @@ import org.apache.commons.math3.ml.clustering.DoublePoint;
 import yoavbz.galleryml.background.ImageListener;
 import yoavbz.galleryml.database.ImageDao;
 import yoavbz.galleryml.database.ImageDatabase;
-import yoavbz.galleryml.gallery.Constants;
 import yoavbz.galleryml.gallery.Image;
+import yoavbz.galleryml.gallery.MediaGalleryView;
 import yoavbz.galleryml.gallery.cluster.ImageCluster;
 import yoavbz.galleryml.gallery.cluster.ImageClusterActivity;
-import yoavbz.galleryml.gallery.views.MediaGalleryView;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -150,8 +149,8 @@ public class MainActivity extends AppCompatActivity
 		// Starting ImageClusterActivity with correct parameters
 		Intent intent = new Intent(this, ImageClusterActivity.class);
 		Bundle bundle = new Bundle();
-		bundle.putParcelableArrayList(Constants.IMAGES, clusters.get(pos).getImages());
-		bundle.putString(Constants.TITLE, "Similar Images");
+		bundle.putParcelableArrayList("IMAGES", clusters.get(pos).getImages());
+		bundle.putString("TITLE", "Similar Images");
 		intent.putExtras(bundle);
 		startActivityForResult(intent, 0);
 	}
@@ -313,7 +312,8 @@ public class MainActivity extends AppCompatActivity
 			cameraDir = Paths.get(dcim, "Camera");
 			Log.d(TAG, "Starting image classification asynchronously..");
 			try {
-				classifier = new ImageClassifier(MainActivity.this, "mobilenet_v2_1.0_224_quant.tflite",
+				classifier = new ImageClassifier(MainActivity.this,
+				                                 "mobilenet_v2_1.0_224_quant.tflite",
 				                                 "labels.txt", 224);
 			} catch (IOException e) {
 				Log.e(TAG, "Couldn't build image classifier: " + e);
@@ -321,9 +321,11 @@ public class MainActivity extends AppCompatActivity
 			}
 			progressBar = findViewById(R.id.classification_progress);
 			progressBar.setVisibility(View.VISIBLE);
-			textView = findViewById(R.id.content_text);
-			textView.setText("Scanning images..");
-			textView.setVisibility(View.VISIBLE);
+			runOnUiThread(() -> {
+				textView = findViewById(R.id.content_text);
+				textView.setText("Scanning images..");
+				textView.setVisibility(View.VISIBLE);
+			});
 		}
 
 		@Override
@@ -335,20 +337,18 @@ public class MainActivity extends AppCompatActivity
 				Files.walk(cameraDir)
 				     .filter((Path path) -> path.toString().endsWith(".jpg"))
 				     .forEach((Path path) -> {
-					     try {
-						     Image image = new Image(path);
-						     if (image.getDateTaken() != null) {
-							     list.add(image);
-							     image.calculateFeatureVector(classifier);
-							     points.add(image.getPoint());
-						     }
-						     publishProgress((int) (100 / imagesNum));
-					     } catch (Exception e) {
+					     Image image = new Image(path);
+					     if (image.getDateTaken() != null) {
+						     list.add(image);
+						     image.calculateFeatureVector(classifier);
+						     points.add(image.getPoint());
+					     } else {
 						     Log.e(TAG, "Skipping image: " + path.getFileName());
 					     }
+					     publishProgress((int) (100 / imagesNum));
 				     });
 
-				DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(2.05, 2);
+				DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(2.03, 2);
 				List<Cluster<DoublePoint>> dbscanClusters = clusterer.cluster(points);
 				for (Cluster<DoublePoint> cluster : dbscanClusters) {
 					ImageCluster imageCluster = new ImageCluster();
@@ -360,9 +360,7 @@ public class MainActivity extends AppCompatActivity
 				}
 			} catch (IOException e) {
 				Log.e(TAG, "Got an exception while initiating input list: " + e);
-				textView.setText("Got an error :(");
-				textView.setVisibility(View.VISIBLE);
-				galleryView.setVisibility(View.GONE);
+				cancel(true);
 			}
 			return null;
 		}
@@ -379,6 +377,13 @@ public class MainActivity extends AppCompatActivity
 			galleryView.setImageClusters(clusters);
 			galleryView.notifyDataSetChanged();
 			classifier.close();
+		}
+
+		@Override
+		protected void onCancelled() {
+			textView.setText("Got an error :(");
+			textView.setVisibility(View.VISIBLE);
+			galleryView.setVisibility(View.GONE);
 		}
 	}
 }
