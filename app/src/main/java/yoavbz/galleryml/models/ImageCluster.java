@@ -1,8 +1,7 @@
-package yoavbz.galleryml.gallery.cluster;
+package yoavbz.galleryml.models;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-import yoavbz.galleryml.gallery.Image;
 
 import java.util.ArrayList;
 import java.util.Date;

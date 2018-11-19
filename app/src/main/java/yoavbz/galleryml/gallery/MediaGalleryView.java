@@ -9,18 +9,16 @@ import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import yoavbz.galleryml.R;
-import yoavbz.galleryml.gallery.cluster.ImageCluster;
+import yoavbz.galleryml.gallery.adapters.GridImagesAdapter;
+import yoavbz.galleryml.models.ImageCluster;
 
 import java.util.ArrayList;
 
 public class MediaGalleryView extends RecyclerView {
 
-	private static final String TAG = "MediaGalleryView";
-
 	public static final int HORIZONTAL = 0;
 	public static final int VERTICAL = 1;
 	public static final int DEFAULT_SIZE = 6131;
-
 	private final Context mContext;
 	private GridImagesAdapter mAdapter;
 	private ArrayList<ImageCluster> mDataset;

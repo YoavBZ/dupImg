@@ -4,7 +4,7 @@ import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Delete;
 import android.arch.persistence.room.Insert;
 import android.arch.persistence.room.Query;
-import yoavbz.galleryml.gallery.Image;
+import yoavbz.galleryml.models.Image;
 
 import java.util.Date;
 import java.util.List;
@@ -25,11 +25,11 @@ public interface ImageDao {
 	void insert(Image image);
 
 	@Insert
-	void Insert(Image... images);
+	void insert(List<Image> images);
 
 	@Query("DELETE FROM images WHERE path LIKE :path")
 	void delete(String path);
 
 	@Delete
-	void delete(Image... images);
+	void delete(Image images);
 }

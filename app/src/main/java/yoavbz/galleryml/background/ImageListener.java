@@ -1,7 +1,6 @@
 package yoavbz.galleryml.background;
 
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.*;
@@ -12,7 +11,7 @@ import android.widget.Toast;
 import yoavbz.galleryml.ImageClassifier;
 import yoavbz.galleryml.database.ImageDao;
 import yoavbz.galleryml.database.ImageDatabase;
-import yoavbz.galleryml.gallery.Image;
+import yoavbz.galleryml.models.Image;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -21,13 +20,6 @@ public class ImageListener extends Service {
 
 	private static final String TAG = "ImageListener";
 	NewImageObserver observer;
-
-	public static boolean isRunning(Context context) {
-		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
-		boolean isRunning = pref.getBoolean("isRunning", false);
-		Log.d(TAG, "isRunning " + isRunning);
-		return isRunning;
-	}
 
 	@Nullable
 	@Override
@@ -47,12 +39,13 @@ public class ImageListener extends Service {
 		observer = new NewImageObserver(path, mask);
 		observer.startWatching();
 
-		return Service.START_NOT_STICKY;
+		return Service.START_STICKY;
 	}
 
 	@Override
 	public void onDestroy() {
 		Log.d(TAG, "OnDestroy");
+		observer.stopWatching();
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		pref.edit().putBoolean("isRunning", false).apply();
 		super.onDestroy();
@@ -64,11 +57,13 @@ public class ImageListener extends Service {
 	private class NewImageObserver extends FileObserver {
 
 		private static final String TAG = "ImageObserver";
+		private String directory;
 		private ImageClassifier classifier = null;
 		private ImageDao db;
 
 		NewImageObserver(String path, int mask) {
 			super(path, mask);
+			directory = path;
 			db = ImageDatabase.getAppDatabase(getApplicationContext()).imageDao();
 			try {
 				classifier = new ImageClassifier(ImageListener.this, "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
@@ -82,6 +77,7 @@ public class ImageListener extends Service {
 		@Override
 		public void onEvent(int event, @Nullable String path) {
 			Handler handler = new Handler(Looper.getMainLooper());
+			path = directory + '/' + path;
 			switch (event) {
 				case FileObserver.CREATE:
 				case FileObserver.MOVED_TO:
@@ -91,8 +87,6 @@ public class ImageListener extends Service {
 						image.calculateFeatureVector(classifier);
 						db.insert(image);
 						handler.post(() -> Toast.makeText(ImageListener.this, "New Image!", Toast.LENGTH_SHORT).show());
-					} else {
-						Log.w(TAG, "Got an exception while parsing image date");
 					}
 					break;
 				case FileObserver.DELETE:
@@ -102,7 +96,6 @@ public class ImageListener extends Service {
 							() -> Toast.makeText(ImageListener.this, "Image was removed!!",
 							                     Toast.LENGTH_SHORT).show());
 					Log.d(TAG, "An image was removed!");
-					break;
 			}
 		}
 
@@ -115,9 +108,9 @@ public class ImageListener extends Service {
 
 		@Override
 		public void stopWatching() {
-			super.stopWatching();
 			Toast.makeText(ImageListener.this, "Monitor stopped", Toast.LENGTH_LONG).show();
 			Log.d(TAG, "NewImageObserver stopWatching");
+			super.stopWatching();
 		}
 	}
 }

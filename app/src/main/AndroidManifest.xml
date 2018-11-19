@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+		xmlns:android="http://schemas.android.com/apk/res/android"
 		package="yoavbz.galleryml">
 
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
@@ -22,7 +23,7 @@
 			</intent-filter>
 		</activity>
 
-		<activity android:name=".gallery.cluster.ImageClusterActivity"/>
+		<activity android:name=".gallery.ImageClusterActivity"/>
 
 		<activity android:name=".IntroActivity"/>
 

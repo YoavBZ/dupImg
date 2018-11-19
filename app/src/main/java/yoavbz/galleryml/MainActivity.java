@@ -1,6 +1,8 @@
 package yoavbz.galleryml;
 
 import android.app.AlertDialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -10,6 +12,8 @@ import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -29,10 +33,10 @@ import org.apache.commons.math3.ml.clustering.DoublePoint;
 import yoavbz.galleryml.background.ImageListener;
 import yoavbz.galleryml.database.ImageDao;
 import yoavbz.galleryml.database.ImageDatabase;
-import yoavbz.galleryml.gallery.Image;
+import yoavbz.galleryml.gallery.ImageClusterActivity;
 import yoavbz.galleryml.gallery.MediaGalleryView;
-import yoavbz.galleryml.gallery.cluster.ImageCluster;
-import yoavbz.galleryml.gallery.cluster.ImageClusterActivity;
+import yoavbz.galleryml.models.Image;
+import yoavbz.galleryml.models.ImageCluster;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -98,9 +102,12 @@ public class MainActivity extends AppCompatActivity
 
 		SwitchCompat monitorSwitch = (SwitchCompat) navigationView.getMenu().findItem(
 				R.id.drawer_switch).getActionView();
-		monitorSwitch.setChecked(ImageListener.isRunning(this));
+
+		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+		boolean monitorRunning = pref.getBoolean("isRunning", false);
+		monitorSwitch.setChecked(monitorRunning);
 		monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-			Log.d(TAG, "Background service is " + (ImageListener.isRunning(this) ? "" : "not ") + "running");
+			Log.d(TAG, "Background service is " + (monitorRunning ? "" : "not ") + "running");
 			if (isChecked) {
 				// Turn on background listener service
 				startService(new Intent(this, ImageListener.class));
@@ -150,7 +157,6 @@ public class MainActivity extends AppCompatActivity
 		Intent intent = new Intent(this, ImageClusterActivity.class);
 		Bundle bundle = new Bundle();
 		bundle.putParcelableArrayList("IMAGES", clusters.get(pos).getImages());
-		bundle.putString("TITLE", "Similar Images");
 		intent.putExtras(bundle);
 		startActivityForResult(intent, 0);
 	}
@@ -165,8 +171,14 @@ public class MainActivity extends AppCompatActivity
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		if (requestCode == 0 && resultCode == RESULT_OK) {
-			String selectedImage = data.getStringExtra("filename");
-			Toast.makeText(this, selectedImage, Toast.LENGTH_LONG).show();
+			ArrayList<Image> toDelete = data.getParcelableArrayListExtra("toDelete");
+			new Thread(() -> {
+				for (Image image : toDelete) {
+					image.delete(MainActivity.this, ImageDatabase.getAppDatabase(this).imageDao());
+				}
+				fetchAndCluster();
+			}).start();
+			// Refreshing clusters after deletion
 		} else if (requestCode == 1 && resultCode == RESULT_OK) {
 			init();
 		}
@@ -241,6 +253,7 @@ public class MainActivity extends AppCompatActivity
 		private ImageClassifier classifier;
 		private ProgressBar progressBar;
 		private ImageDao db;
+		private TextView textView;
 
 		@Override
 		protected void onPreExecute() {
@@ -257,73 +270,11 @@ public class MainActivity extends AppCompatActivity
 				cancel(true);
 			}
 			progressBar = findViewById(R.id.classification_progress);
-			progressBar.setVisibility(View.VISIBLE);
-		}
-
-		@Override
-		protected Void doInBackground(Void... voids) {
-			list = db.getAll();
-			Log.d(TAG, "fetchAndCluster: Got " + list.size() + " images");
-			List<DoublePoint> points = list.stream()
-			                               .map(Image::getPoint)
-			                               .collect(Collectors.toList());
-			DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(2.05, 2);
-			List<Cluster<DoublePoint>> dbscanClusters = clusterer.cluster(points);
-			for (Cluster<DoublePoint> cluster : dbscanClusters) {
-				ImageCluster imageCluster = new ImageCluster();
-				for (DoublePoint point : cluster.getPoints()) {
-					int index = points.indexOf(point);
-					imageCluster.addImage(list.get(index));
-					publishProgress(100 / points.size());
-				}
-				clusters.add(imageCluster);
-			}
-			Log.d(TAG, "fetchAndCluster: Clustered " + clusters.size() + " clusters");
-			galleryView.notifyDataSetChanged();
-			return null;
-		}
-
-		@Override
-		protected void onProgressUpdate(Integer... values) {
-			progressBar.incrementProgressBy(values[0]);
-		}
-
-		@Override
-		protected void onPostExecute(Void result) {
-			progressBar.setVisibility(View.GONE);
-			galleryView.setImageClusters(clusters);
-			galleryView.notifyDataSetChanged();
-			classifier.close();
-		}
-	}
-
-	private class ClassifyAndCluster extends AsyncTask<Void, Integer, Void> {
-
-		private ImageClassifier classifier;
-		private ProgressBar progressBar;
-		private TextView textView;
-		private Path cameraDir;
-
-		@Override
-		protected void onPreExecute() {
-			list.clear();
-			clusters.clear();
-			String dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
-			cameraDir = Paths.get(dcim, "Camera");
-			Log.d(TAG, "Starting image classification asynchronously..");
-			try {
-				classifier = new ImageClassifier(MainActivity.this,
-				                                 "mobilenet_v2_1.0_224_quant.tflite",
-				                                 "labels.txt", 224);
-			} catch (IOException e) {
-				Log.e(TAG, "Couldn't build image classifier: " + e);
-				cancel(true);
-			}
-			progressBar = findViewById(R.id.classification_progress);
-			progressBar.setVisibility(View.VISIBLE);
+			textView = findViewById(R.id.content_text);
 			runOnUiThread(() -> {
-				textView = findViewById(R.id.content_text);
-				textView.setText("Scanning images..");
+				textView.setText("Loading images..");
+				galleryView.notifyDataSetChanged();
+				progressBar.setVisibility(View.VISIBLE);
 				textView.setVisibility(View.VISIBLE);
 			});
 		}
@@ -331,35 +282,25 @@ public class MainActivity extends AppCompatActivity
 		@Override
 		protected Void doInBackground(Void... voids) {
 			try {
-				long imagesNum = Files.list(cameraDir).count();
-				ArrayList<DoublePoint> points = new ArrayList<>();
-
-				Files.walk(cameraDir)
-				     .filter((Path path) -> path.toString().endsWith(".jpg"))
-				     .forEach((Path path) -> {
-					     Image image = new Image(path);
-					     if (image.getDateTaken() != null) {
-						     list.add(image);
-						     image.calculateFeatureVector(classifier);
-						     points.add(image.getPoint());
-					     } else {
-						     Log.e(TAG, "Skipping image: " + path.getFileName());
-					     }
-					     publishProgress((int) (100 / imagesNum));
-				     });
-
-				DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(2.03, 2);
+				list = db.getAll();
+				Log.d(TAG, "fetchAndCluster: Got " + list.size() + " images");
+				List<DoublePoint> points = list.stream()
+				                               .map(Image::getPoint)
+				                               .collect(Collectors.toList());
+				DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(1.85, 2);
 				List<Cluster<DoublePoint>> dbscanClusters = clusterer.cluster(points);
 				for (Cluster<DoublePoint> cluster : dbscanClusters) {
 					ImageCluster imageCluster = new ImageCluster();
 					for (DoublePoint point : cluster.getPoints()) {
 						int index = points.indexOf(point);
 						imageCluster.addImage(list.get(index));
+						publishProgress(100 / points.size());
 					}
 					clusters.add(imageCluster);
 				}
-			} catch (IOException e) {
-				Log.e(TAG, "Got an exception while initiating input list: " + e);
+				Log.d(TAG, "fetchAndCluster: Clustered " + clusters.size() + " clusters");
+			} catch (Exception e) {
+				Log.e(TAG, "doInBackground: Got an exception!", e);
 				cancel(true);
 			}
 			return null;
@@ -383,7 +324,129 @@ public class MainActivity extends AppCompatActivity
 		protected void onCancelled() {
 			textView.setText("Got an error :(");
 			textView.setVisibility(View.VISIBLE);
-			galleryView.setVisibility(View.GONE);
+			progressBar.setVisibility(View.GONE);
+		}
+	}
+
+	private class ClassifyAndCluster extends AsyncTask<Void, Integer, Void> {
+
+		private static final String TAG = "ClassifyAndCluster";
+		private static final int NOTIFICATION_ID = 1;
+		private ImageClassifier classifier;
+		private ProgressBar progressBar;
+		private TextView textView;
+		private Path cameraDir;
+		private NotificationCompat.Builder mBuilder;
+		private NotificationManagerCompat notificationManager;
+
+		@Override
+		protected void onPreExecute() {
+			list.clear();
+			clusters.clear();
+			String dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
+			cameraDir = Paths.get(dcim, "Camera");
+			Log.d(TAG, "Starting image classification asynchronously..");
+			try {
+				classifier = new ImageClassifier(MainActivity.this,
+				                                 "mobilenet_v2_1.0_224_quant.tflite",
+				                                 "labels.txt", 224);
+			} catch (IOException e) {
+				Log.e(TAG, "Couldn't build image classifier: " + e);
+				cancel(true);
+			}
+			progressBar = findViewById(R.id.classification_progress);
+			progressBar.setProgress(0);
+			textView = findViewById(R.id.content_text);
+			runOnUiThread(() -> {
+				textView.setText("Scanning images..");
+				galleryView.setVisibility(View.GONE);
+				progressBar.setVisibility(View.VISIBLE);
+				textView.setVisibility(View.VISIBLE);
+			});
+			notificationManager = NotificationManagerCompat.from(MainActivity.this);
+			setNotificationChannel();
+			mBuilder = new NotificationCompat.Builder(MainActivity.this, "default")
+					.setSmallIcon(R.drawable.ic_menu_gallery)
+					.setContentTitle("Scanning images..")
+					.setPriority(NotificationCompat.PRIORITY_LOW)
+					.setOngoing(true)
+					.setProgress(100, 0, false);
+			notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
+		}
+
+		private void setNotificationChannel() {
+			NotificationChannel notificationChannel = new NotificationChannel("default", "default",
+			                                                                  NotificationManager.IMPORTANCE_LOW);
+			notificationChannel.enableLights(false);
+			notificationChannel.enableVibration(false);
+			NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+			notificationManager.createNotificationChannel(notificationChannel);
+		}
+
+		@Override
+		protected Void doInBackground(Void... voids) {
+			try {
+				long imagesNum = Files.list(cameraDir).count();
+				Log.d(TAG, "Found " + imagesNum + " images on DCIM directory");
+				ArrayList<DoublePoint> points = new ArrayList<>();
+
+				Files.walk(cameraDir)
+				     .filter((Path path) -> path.toString().endsWith(".jpg"))
+				     .forEach((Path path) -> {
+					     Image image = new Image(path);
+					     if (image.getDateTaken() != null) {
+						     list.add(image);
+						     image.calculateFeatureVector(classifier);
+						     points.add(image.getPoint());
+					     } else {
+						     Log.w(TAG, "Skipping image: " + path.getFileName());
+					     }
+					     publishProgress((int) (100 / imagesNum));
+				     });
+				ImageDatabase db = ImageDatabase.getAppDatabase(MainActivity.this);
+				db.clearAllTables();
+				db.imageDao().insert(list);
+				DBSCANClusterer<DoublePoint> clusterer = new DBSCANClusterer<>(1.85, 2);
+				List<Cluster<DoublePoint>> dbscanClusters = clusterer.cluster(points);
+				for (Cluster<DoublePoint> cluster : dbscanClusters) {
+					ImageCluster imageCluster = new ImageCluster();
+					for (DoublePoint point : cluster.getPoints()) {
+						int index = points.indexOf(point);
+						imageCluster.addImage(list.get(index));
+					}
+					clusters.add(imageCluster);
+				}
+				Log.d(TAG, "fetchAndCluster: Clustered " + clusters.size() + " clusters");
+			} catch (IOException e) {
+				Log.e(TAG, "Got an exception while initiating input list: " + e);
+				cancel(true);
+			}
+			return null;
+		}
+
+		@Override
+		protected void onProgressUpdate(Integer... values) {
+			progressBar.incrementProgressBy(values[0]);
+			mBuilder.setProgress(100, progressBar.getProgress(), false);
+			notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
+		}
+
+		@Override
+		protected void onPostExecute(Void result) {
+			notificationManager.cancel(NOTIFICATION_ID);
+			progressBar.setVisibility(View.GONE);
+			textView.setVisibility(View.GONE);
+			galleryView.setVisibility(View.VISIBLE);
+			galleryView.setImageClusters(clusters);
+			galleryView.notifyDataSetChanged();
+			classifier.close();
+		}
+
+		@Override
+		protected void onCancelled() {
+			textView.setText("Got an error :(");
+			textView.setVisibility(View.VISIBLE);
+			progressBar.setVisibility(View.GONE);
 		}
 	}
 }

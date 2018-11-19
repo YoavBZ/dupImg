@@ -37,7 +37,7 @@ public class ImageClassifier {
 		return getFeaturesVector(result);
 	}
 
-	public void close() {
+	void close() {
 		interpreter.close();
 		interpreter = null;
 	}
