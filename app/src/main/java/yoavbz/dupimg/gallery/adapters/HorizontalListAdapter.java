@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery.adapters;
+package yoavbz.dupimg.gallery.adapters;
 
 import android.content.Context;
 import android.graphics.ColorMatrix;
@@ -14,8 +14,8 @@ import com.bignerdranch.android.multiselector.MultiSelector;
 import com.bignerdranch.android.multiselector.SwappingHolder;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import yoavbz.galleryml.R;
-import yoavbz.galleryml.models.Image;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 

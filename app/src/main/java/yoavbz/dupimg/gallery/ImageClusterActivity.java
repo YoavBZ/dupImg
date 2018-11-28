@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery;
+package yoavbz.dupimg.gallery;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -17,11 +17,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 import com.bignerdranch.android.multiselector.MultiSelector;
-import yoavbz.galleryml.R;
-import yoavbz.galleryml.gallery.adapters.CustomViewPager;
-import yoavbz.galleryml.gallery.adapters.HorizontalListAdapter;
-import yoavbz.galleryml.gallery.adapters.ViewPagerAdapter;
-import yoavbz.galleryml.models.Image;
+import yoavbz.dupimg.MainActivity;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.gallery.adapters.CustomViewPager;
+import yoavbz.dupimg.gallery.adapters.HorizontalListAdapter;
+import yoavbz.dupimg.gallery.adapters.ViewPagerAdapter;
+import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 
@@ -31,7 +32,6 @@ import java.util.ArrayList;
 public class ImageClusterActivity extends AppCompatActivity
 		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClick {
 
-	private static final String TAG = "ImageClusterActivity";
 	protected Toolbar mToolbar;
 	protected ArrayList<Image> dataSet;
 	protected String title;
@@ -57,7 +57,6 @@ public class ImageClusterActivity extends AppCompatActivity
 		}
 		Bundle bundle = intent.getExtras();
 		dataSet = bundle.getParcelableArrayList("IMAGES");
-		Log.d(TAG, "dataSet: " + dataSet.toString());
 	}
 
 	private void initViews() {
@@ -123,7 +122,7 @@ public class ImageClusterActivity extends AppCompatActivity
 								dataSet.remove(i);
 							}
 						}
-						Log.d(TAG, "dataSet after delete: " + dataSet.toString());
+						Log.d(MainActivity.TAG, "ImageClusterActivity: dataSet after delete: " + dataSet.toString());
 						Intent data = new Intent();
 						data.putExtra("toDelete", dataSet);
 						setResult(RESULT_OK, data);

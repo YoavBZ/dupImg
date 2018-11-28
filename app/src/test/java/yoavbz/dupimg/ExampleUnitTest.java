@@ -1,4 +1,4 @@
-package yoavbz.galleryml;
+package yoavbz.dupimg;
 
 import org.junit.Test;
 

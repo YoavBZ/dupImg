@@ -1,4 +1,4 @@
-package yoavbz.galleryml;
+package yoavbz.dupimg;
 
 import android.Manifest;
 import android.content.SharedPreferences;
@@ -12,6 +12,8 @@ import com.github.paolorotolo.appintro.AppIntroFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
 
 public class IntroActivity extends AppIntro {
+
+	private boolean resultOk = false;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -53,7 +55,16 @@ public class IntroActivity extends AppIntro {
 		// Returning to the main activity
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
 		pref.edit().putBoolean("showIntro", false).apply();
+		resultOk = true;
 		setResult(RESULT_OK);
 		finish();
+	}
+
+	@Override
+	protected void onDestroy() {
+		if (!resultOk){
+			setResult(RESULT_CANCELED);
+		}
+		super.onDestroy();
 	}
 }

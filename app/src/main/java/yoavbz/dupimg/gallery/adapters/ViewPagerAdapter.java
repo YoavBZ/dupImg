@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery.adapters;
+package yoavbz.dupimg.gallery.adapters;
 
 import android.app.Activity;
 import android.content.Context;
@@ -22,8 +22,8 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
-import yoavbz.galleryml.R;
-import yoavbz.galleryml.models.Image;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 

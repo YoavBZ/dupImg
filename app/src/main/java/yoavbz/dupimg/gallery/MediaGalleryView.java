@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery;
+package yoavbz.dupimg.gallery;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -8,11 +8,13 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
-import yoavbz.galleryml.R;
-import yoavbz.galleryml.gallery.adapters.GridImagesAdapter;
-import yoavbz.galleryml.models.ImageCluster;
+import org.apache.commons.math3.ml.clustering.Cluster;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.gallery.adapters.GridImagesAdapter;
+import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MediaGalleryView extends RecyclerView {
 
@@ -21,7 +23,7 @@ public class MediaGalleryView extends RecyclerView {
 	public static final int DEFAULT_SIZE = 6131;
 	private final Context mContext;
 	private GridImagesAdapter mAdapter;
-	private ArrayList<ImageCluster> mDataset;
+	private ArrayList<Cluster<Image>> imageClusters;
 	private Drawable mPlaceHolder;
 	private int mSpanCount;
 	private int mOrientation;
@@ -48,7 +50,8 @@ public class MediaGalleryView extends RecyclerView {
 	public MediaGalleryView(Context context, @Nullable AttributeSet attrs) {
 		super(context, attrs);
 		this.mContext = context;
-		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.MediaGalleryView, 0, 0);
+		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.MediaGalleryView,
+		                                                         0, 0);
 		mSpanCount = a.getInteger(R.styleable.MediaGalleryView_span_count, 2);
 		mPlaceHolder = a.getDrawable(R.styleable.MediaGalleryView_place_holder);
 		mOrientation = a.getInt(R.styleable.MediaGalleryView_gallery_orientation, VERTICAL);
@@ -64,8 +67,8 @@ public class MediaGalleryView extends RecyclerView {
 	 * Init.
 	 */
 	public void init() {
-		mDataset = new ArrayList<>();
-		mAdapter = new GridImagesAdapter(mContext, mDataset, mPlaceHolder);
+		imageClusters = new ArrayList<>();
+		mAdapter = new GridImagesAdapter(mContext, imageClusters, mPlaceHolder);
 		setOrientation(mOrientation);
 		mAdapter.setImageSize(mWidth, mHeight);
 		setAdapter(mAdapter);
@@ -74,11 +77,11 @@ public class MediaGalleryView extends RecyclerView {
 	/**
 	 * Sets images.
 	 *
-	 * @param itemList the item list
+	 * @param clusters the item list
 	 */
-	public void setImageClusters(ArrayList<ImageCluster> itemList) {
-		this.mDataset.clear();
-		this.mDataset.addAll(itemList);
+	public void setImageClusters(List<Cluster<Image>> clusters) {
+		this.imageClusters.clear();
+		this.imageClusters.addAll(clusters);
 	}
 
 	/**

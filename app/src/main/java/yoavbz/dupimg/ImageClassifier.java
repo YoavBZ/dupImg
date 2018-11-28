@@ -1,4 +1,4 @@
-package yoavbz.galleryml;
+package yoavbz.dupimg;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -6,10 +6,7 @@ import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import org.tensorflow.lite.Interpreter;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
@@ -17,7 +14,7 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ImageClassifier {
+public class ImageClassifier implements Closeable {
 
 	private Interpreter interpreter;
 	private int inputSize;
@@ -37,7 +34,8 @@ public class ImageClassifier {
 		return getFeaturesVector(result);
 	}
 
-	void close() {
+	@Override
+	public void close() {
 		interpreter.close();
 		interpreter = null;
 	}

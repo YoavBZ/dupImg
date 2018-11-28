@@ -1,9 +1,8 @@
-package yoavbz.galleryml.database;
+package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
 import android.content.Context;
-import org.apache.commons.math3.ml.clustering.DoublePoint;
-import yoavbz.galleryml.models.Image;
+import yoavbz.dupimg.models.Image;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,15 +48,13 @@ public abstract class ImageDatabase extends RoomDatabase {
 		}
 
 		@TypeConverter
-		public static String pointToString(DoublePoint point) {
-			return Arrays.stream(point.getPoint()).mapToObj(String::valueOf).collect(Collectors.joining(","));
+		public static String doubleArrayToString(double[] point) {
+			return Arrays.stream(point).mapToObj(String::valueOf).collect(Collectors.joining(","));
 		}
 
 		@TypeConverter
-		public static DoublePoint stringToPoint(String str) {
-			double[] doubleArray = Arrays.stream(str.split(",")).mapToDouble(Double::parseDouble).toArray();
-			return new DoublePoint(doubleArray);
+		public static double[] stringToDoubleArray(String str) {
+			return Arrays.stream(str.split(",")).mapToDouble(Double::parseDouble).toArray();
 		}
-
 	}
 }

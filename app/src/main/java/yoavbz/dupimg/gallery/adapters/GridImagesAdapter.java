@@ -1,4 +1,4 @@
-package yoavbz.galleryml.gallery.adapters;
+package yoavbz.dupimg.gallery.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -12,21 +12,23 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import yoavbz.galleryml.R;
-import yoavbz.galleryml.gallery.MediaGalleryView;
-import yoavbz.galleryml.models.ImageCluster;
+import org.apache.commons.math3.ml.clustering.Cluster;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.gallery.MediaGalleryView;
+import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.ViewHolder> {
-	private ArrayList<ImageCluster> mDataset;
+	private ArrayList<Cluster<Image>> mDataset;
 	private Context mContext;
 	private Drawable imgPlaceHolderResId;
 	private MediaGalleryView.OnImageClicked mClickListener;
 	private int mHeight;
 	private int mWidth;
 
-	public GridImagesAdapter(Context activity, ArrayList<ImageCluster> imageClusters, Drawable imgPlaceHolderResId) {
+	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters, Drawable imgPlaceHolderResId) {
 		super();
 		this.mDataset = imageClusters;
 		this.mContext = activity;
@@ -55,13 +57,13 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 			params.width = mWidth;
 		}
 		holder.clusterThumbnail.setLayoutParams(params);
-		ImageCluster cluster = mDataset.get(holder.getAdapterPosition());
-		String path = cluster.getFirstImage().getPath().toString();
+		List<Image> images = mDataset.get(holder.getAdapterPosition()).getPoints();
+		String path = images.get(0).getPath().toString();
 		Glide.with(mContext)
 		     .load(path)
 		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
 		     .into(holder.clusterThumbnail);
-		holder.clusterSize.setText(String.valueOf(cluster.size()));
+		holder.clusterSize.setText(String.valueOf(images.size()));
 	}
 
 	public void setImgPlaceHolder(Drawable imgPlaceHolderResId) {

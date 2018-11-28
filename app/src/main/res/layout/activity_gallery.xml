@@ -11,7 +11,7 @@
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"/>
 
-	<yoavbz.galleryml.gallery.adapters.CustomViewPager
+	<yoavbz.dupimg.gallery.adapters.CustomViewPager
 			android:id="@+id/pager"
 			android:fitsSystemWindows="true"
 			android:layout_width="match_parent"
