@@ -31,7 +31,12 @@ public class ImageClassifier implements Closeable {
 		ByteBuffer byteBuffer = convertBitmapToByteBuffer(bitmap);
 		byte[][] result = new byte[1][labelList.size()];
 		interpreter.run(byteBuffer, result);
-		return getFeaturesVector(result);
+		double[] vector = new double[result[0].length];
+		for (int i = 0; i < labelList.size(); ++i) {
+			// Calculating feature confidence
+			vector[i] = (result[0][i] & 0xff) / 255.0f;
+		}
+		return vector;
 	}
 
 	@Override
@@ -78,14 +83,4 @@ public class ImageClassifier implements Closeable {
 		}
 		return byteBuffer;
 	}
-
-	private double[] getFeaturesVector(byte[][] labelProbArray) {
-		double[] vector = new double[labelProbArray[0].length];
-		for (int i = 0; i < labelList.size(); ++i) {
-			// Calculating feature confidence
-			vector[i] = (labelProbArray[0][i] & 0xff) / 255.0f;
-		}
-		return vector;
-	}
-
 }

@@ -5,6 +5,6 @@
 	<item android:id="@+id/action_rescan"
 			android:title="Rescan"
 			android:orderInCategory="1"
-			app:showAsAction="never"/>
+			app:showAsAction="ifRoom"/>
 
 </menu>

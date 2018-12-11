@@ -1,6 +1,5 @@
 package yoavbz.dupimg.models;
 
-import android.app.Activity;
 import android.arch.persistence.room.Entity;
 import android.arch.persistence.room.PrimaryKey;
 import android.graphics.Bitmap;
@@ -10,9 +9,9 @@ import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.media.ExifInterface;
 import android.util.Log;
-import android.widget.Toast;
 import org.apache.commons.math3.ml.clustering.Clusterable;
 import yoavbz.dupimg.ImageClassifier;
+import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.database.ImageDao;
 
 import java.io.IOException;
@@ -42,7 +41,10 @@ public class Image implements Parcelable, Clusterable {
 	private Date dateTaken;
 	private double[] point;
 
-	public Image(@NonNull Path path) {
+	public Image() {
+	}
+
+	public Image(@NonNull Path path, ImageClassifier classifier) {
 		this.path = path;
 		try {
 			ExifInterface exif = new ExifInterface(this.path.toString());
@@ -52,19 +54,14 @@ public class Image implements Parcelable, Clusterable {
 			}
 			DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 			dateTaken = dateFormat.parse(date);
+			point = classifier.recognizeImage(getBitmap());
 		} catch (IOException | ParseException e) {
 			Log.e("Image", "Got an exception while constructing image: " + e);
 		}
 	}
 
-	public Image(String path) {
-		this(Paths.get(path));
-	}
-
-	private Image(Parcel in) {
-		path = Paths.get(in.readString());
-		dateTaken = new Date(in.readLong());
-		point = in.createDoubleArray();
+	public Image(String path, ImageClassifier classifier) {
+		this(Paths.get(path), classifier);
 	}
 
 	@NonNull
@@ -84,9 +81,8 @@ public class Image implements Parcelable, Clusterable {
 		this.dateTaken = dateTaken;
 	}
 
-	@Override
-	public double[] getPoint() {
-		return point;
+	public void setPoint(double[] point) {
+		this.point = point;
 	}
 
 	@Override
@@ -94,40 +90,37 @@ public class Image implements Parcelable, Clusterable {
 		return path.getFileName().toString();
 	}
 
-	// --- Clusterable interface functions ---
-
-	public void setPoint(double[] point) {
-		this.point = point;
-	}
-
 	/**
 	 * @return A Bitmap representation of the image
 	 */
-	public Bitmap getBitmap(){
+	public Bitmap getBitmap() {
 		Bitmap bitmap = BitmapFactory.decodeFile(path.toString());
 		return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
 	}
 
-	/**
-	 * Calculating the feature vector using a given classifier
-	 *
-	 * @param classifier The classifier to run the TensorFlow interpreter for calculating feature vector
-	 */
-	public void calculateFeatureVector(ImageClassifier classifier) {
-		point = classifier.recognizeImage(getBitmap());
-	}
-
-	public void delete(Activity activity, ImageDao dao) {
+	public void delete(ImageDao dao) {
 		if (path.toFile().delete()) {
 			dao.delete(this);
+			Log.d(MainActivity.TAG, "Image: Deleted " + toString());
 		} else {
-			activity.runOnUiThread(() -> {
-				Toast.makeText(activity, "Couldn't delete file " + toString(), Toast.LENGTH_SHORT).show();
-			});
+			Log.e(MainActivity.TAG, "Image: Couldn't delete file " + toString());
 		}
 	}
 
+	// --- Clusterable interface functions ---
+	@Override
+	public double[] getPoint() {
+		return point;
+	}
+
+
 	// --- Parcelable interface functions ---
+
+	private Image(Parcel in) {
+		path = Paths.get(in.readString());
+		dateTaken = new Date(in.readLong());
+		point = in.createDoubleArray();
+	}
 
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {

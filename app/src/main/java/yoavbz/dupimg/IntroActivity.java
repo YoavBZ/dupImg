@@ -36,6 +36,8 @@ public class IntroActivity extends AppIntro {
 		permissionSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AppIntroFragment.newInstance(permissionSlide));
 
+		// TODO: Return the background monitor slide
+
 		SliderPage doneSlide = new SliderPage();
 		doneSlide.setTitle("Done!");
 		doneSlide.setDescription("We are good to go :)");

@@ -11,14 +11,14 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
 import android.text.Spanned;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 import com.bignerdranch.android.multiselector.MultiSelector;
-import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
+import yoavbz.dupimg.database.ImageDao;
+import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.adapters.CustomViewPager;
 import yoavbz.dupimg.gallery.adapters.HorizontalListAdapter;
 import yoavbz.dupimg.gallery.adapters.ViewPagerAdapter;
@@ -63,10 +63,10 @@ public class ImageClusterActivity extends AppCompatActivity
 		mToolbar = findViewById(R.id.toolbar_media_gallery);
 		if (getSupportActionBar() != null) {
 			mToolbar.setVisibility(View.GONE);
-			getSupportActionBar().setTitle("Long click to select:");
+			getSupportActionBar().setTitle(R.string.cluster_activity_title);
 		} else {
 			setSupportActionBar(mToolbar);
-			mToolbar.setTitle("Long click to select:");
+			mToolbar.setTitle(R.string.cluster_activity_title);
 		}
 		getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 		getSupportActionBar().setHomeButtonEnabled(true);
@@ -92,6 +92,8 @@ public class ImageClusterActivity extends AppCompatActivity
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.image_toolbar_menu, menu);
+		menu.findItem(R.id.action_select).setVisible(multiSelector.isSelectable() &&
+				                                             !multiSelector.getSelectedPositions().isEmpty());
 		return true;
 	}
 
@@ -116,17 +118,17 @@ public class ImageClusterActivity extends AppCompatActivity
 					.setMessage(message)
 					.setPositiveButton("DELETE", (dialog, which) -> {
 						Toast.makeText(this, "Deleting duplicates..", Toast.LENGTH_LONG).show();
-						// Removing selected images from dataset
-						for (int i = dataSet.size() - 1; i > 0; i--) {
-							if (multiSelector.isSelected(i, 0)) {
-								dataSet.remove(i);
+						// Deleting unselected images
+						new Thread(() -> {
+							ImageDao db = ImageDatabase.getAppDatabase(this).imageDao();
+							for (int i = 0; i < dataSet.size(); i++) {
+								if (!multiSelector.isSelected(i, 0)) {
+									dataSet.get(i).delete(db);
+								}
 							}
-						}
-						Log.d(MainActivity.TAG, "ImageClusterActivity: dataSet after delete: " + dataSet.toString());
-						Intent data = new Intent();
-						data.putExtra("toDelete", dataSet);
-						setResult(RESULT_OK, data);
-						finish();
+							setResult(RESULT_OK);
+							finish();
+						}).start();
 					})
 					.setNegativeButton("Cancel", null)
 					.show();

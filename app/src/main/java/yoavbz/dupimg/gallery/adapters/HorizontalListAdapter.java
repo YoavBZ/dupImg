@@ -1,6 +1,6 @@
 package yoavbz.dupimg.gallery.adapters;
 
-import android.content.Context;
+import android.app.Activity;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.support.annotation.NonNull;
@@ -25,7 +25,7 @@ import java.util.ArrayList;
 public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAdapter.ViewHolder> {
 
 	private final ArrayList<Image> mDataset;
-	private final Context mContext;
+	private final Activity mActivity;
 	private final OnImageClick mClickListener;
 	private int mCurrentItem = 0;
 	private MultiSelector multiSelector;
@@ -38,8 +38,8 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 	 * @param imgClick      the img click
 	 * @param multiSelector the activity's multiSelector instance
 	 */
-	public HorizontalListAdapter(Context activity, ArrayList<Image> images, OnImageClick imgClick, MultiSelector multiSelector) {
-		mContext = activity;
+	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClick imgClick, MultiSelector multiSelector) {
+		mActivity = activity;
 		mDataset = images;
 		mClickListener = imgClick;
 		this.multiSelector = multiSelector;
@@ -62,7 +62,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		Image image = mDataset.get(position);
 		holder.filename = image.toString();
 
-		Glide.with(mContext)
+		Glide.with(mActivity)
 		     .load(image.getPath().toString())
 		     .apply(new RequestOptions().placeholder(R.drawable.media_gallery_placeholder))
 		     .into(holder.image);
@@ -84,19 +84,20 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 			// Select this ViewHolder if in selection mode, otherwise call mClickListener
 			if (multiSelector.isSelectable()) {
 				if (!multiSelector.isSelected(position, 0)) {
-					// Select
+					// Select holder
 					multiSelector.setSelected(holder, true);
-					holder.checkbox.setImageDrawable(mContext.getDrawable(R.drawable.ic_check_box));
+					holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
 				} else {
-					// Deselect
+					// Deselect holder
 					multiSelector.setSelected(holder, false);
-					holder.checkbox.setImageDrawable(mContext.getDrawable(R.drawable.ic_check_box_outline_blank));
+					holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
 					// Exit selection mode if there're no more selections
 					if (multiSelector.getSelectedPositions().isEmpty()) {
 						multiSelector.setSelectable(false);
 						notifyDataSetChanged();
 					}
 				}
+				mActivity.invalidateOptionsMenu();
 			} else {
 				mClickListener.onClick(position);
 			}
@@ -108,6 +109,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 				multiSelector.setSelectable(true);
 				multiSelector.setSelected(holder, true);
 				notifyDataSetChanged();
+				mActivity.invalidateOptionsMenu();
 				return true;
 			}
 			return false;
@@ -117,9 +119,9 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		if (multiSelector.isSelectable()) {
 			holder.checkbox.setVisibility(View.VISIBLE);
 			if (multiSelector.isSelected(position, 0)) {
-				holder.checkbox.setImageDrawable(mContext.getDrawable(R.drawable.ic_check_box));
+				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
 			} else {
-				holder.checkbox.setImageDrawable(mContext.getDrawable(R.drawable.ic_check_box_outline_blank));
+				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
 			}
 		} else {
 			holder.checkbox.setVisibility(View.GONE);

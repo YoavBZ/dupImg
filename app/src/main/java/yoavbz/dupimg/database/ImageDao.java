@@ -1,9 +1,6 @@
 package yoavbz.dupimg.database;
 
-import android.arch.persistence.room.Dao;
-import android.arch.persistence.room.Delete;
-import android.arch.persistence.room.Insert;
-import android.arch.persistence.room.Query;
+import android.arch.persistence.room.*;
 import yoavbz.dupimg.models.Image;
 
 import java.util.List;
@@ -17,10 +14,7 @@ public interface ImageDao {
 	@Query("SELECT COUNT(*) FROM images")
 	int getImageCount();
 
-	@Insert
-	void insert(Image image);
-
-	@Insert
+	@Insert(onConflict = OnConflictStrategy.IGNORE)
 	void insert(List<Image> images);
 
 	@Delete

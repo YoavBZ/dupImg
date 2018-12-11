@@ -85,7 +85,7 @@ public class MediaGalleryView extends RecyclerView {
 	}
 
 	/**
-	 * Notify data set changed.
+	 * Notify adapter for data set changed.
 	 */
 	public void notifyDataSetChanged() {
 		if (mAdapter != null) {

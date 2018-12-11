@@ -4,8 +4,9 @@
 
 	<item android:id="@+id/action_select"
 			android:title="Select"
-			android:icon="@drawable/ic_check_black_24dp"
+			android:icon="@drawable/ic_check_black"
 			android:orderInCategory="1"
+			android:visible="false"
 			app:showAsAction="always"/>
 
 </menu>

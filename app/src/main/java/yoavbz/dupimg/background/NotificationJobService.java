@@ -31,7 +31,7 @@ import java.util.List;
 
 public class NotificationJobService extends JobService {
 
-	private static final String PRIMARY_CHANNEL_ID = "ml_notification";
+	private static final String PRIMARY_CHANNEL_ID = "dupImg";
 	private NotificationManager mNotifyManager;
 	private ImageClassifier classifier;
 
@@ -45,13 +45,14 @@ public class NotificationJobService extends JobService {
 				classifier = new ImageClassifier(NotificationJobService.this,
 				                                 "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
 				                                 224);
-				SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-				long end = System.currentTimeMillis();
-				long start = pref.getLong("lastRun", 0);
 
-				if (start == 0) {
-					// It's the first run, saving current time and finish
-					pref.edit().putLong("lastRun", end).apply();
+				SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+				boolean isFirstRun = pref.getBoolean("lastRun", true);
+
+				pref.edit().putBoolean("firstRun", false).apply();
+
+				// Do nothing in case of first run
+				if (isFirstRun) {
 					return;
 				}
 
@@ -62,7 +63,7 @@ public class NotificationJobService extends JobService {
 				db.deleteNotInList(localImages);
 				// Fetching all the images from the database
 				List<Image> dbImages = db.getAll();
-				// Filtering new local images
+				// Filtering new local images, which aren't in the database
 				List<Image> newImages = getNewImages(localImages, dbImages);
 				if (newImages.isEmpty()) {
 					Log.d(MainActivity.TAG, "NotificationJobService: No new images, finishing job..");
@@ -95,12 +96,10 @@ public class NotificationJobService extends JobService {
 	private List<Image> getNewImages(List<String> localImages, List<Image> dbImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Remove images that are already in the database from the local images list, to filter new ones
-		localImages.removeIf((String fileName) ->
-				                     dbImages.stream().anyMatch((Image image) ->
-						                                                fileName.equals(image.getPath().toString())));
+		localImages.removeIf((String fileName) -> dbImages.stream().anyMatch((Image image) -> fileName.equals(
+				image.getPath().toString())));
 		for (String newImage : localImages) {
-			Image image = new Image(newImage);
-			image.calculateFeatureVector(classifier);
+			Image image = new Image(newImage, classifier);
 			newImages.add(image);
 		}
 		return newImages;
@@ -138,7 +137,7 @@ public class NotificationJobService extends JobService {
 	private void createNotificationChannel() {
 		// Create the NotificationChannel with all the parameters.
 		NotificationChannel notificationChannel = new NotificationChannel(
-				PRIMARY_CHANNEL_ID, "Job Service notification", NotificationManager.IMPORTANCE_HIGH);
+				PRIMARY_CHANNEL_ID, "Background Notification", NotificationManager.IMPORTANCE_HIGH);
 		notificationChannel.enableLights(false);
 		notificationChannel.setDescription("Notifications from Job Service");
 
