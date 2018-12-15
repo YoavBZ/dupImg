@@ -56,7 +56,7 @@ public class MediaGalleryView extends RecyclerView {
 		mPlaceHolder = a.getDrawable(R.styleable.MediaGalleryView_place_holder);
 		mOrientation = a.getInt(R.styleable.MediaGalleryView_gallery_orientation, VERTICAL);
 		mWidth = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_width, DEFAULT_SIZE);
-		mHeight = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_height, DEFAULT_SIZE);
+		mHeight = a.getDimensionPixelSize(R.styleable.MediaGalleryView_image_height, 450);
 		if (mPlaceHolder == null) {
 			mPlaceHolder = ContextCompat.getDrawable(mContext, R.drawable.media_gallery_placeholder);
 		}

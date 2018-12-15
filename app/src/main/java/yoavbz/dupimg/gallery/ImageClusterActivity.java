@@ -1,6 +1,7 @@
 package yoavbz.dupimg.gallery;
 
 import android.content.Intent;
+import android.media.MediaScannerConnection;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
@@ -121,11 +122,17 @@ public class ImageClusterActivity extends AppCompatActivity
 						// Deleting unselected images
 						new Thread(() -> {
 							ImageDao db = ImageDatabase.getAppDatabase(this).imageDao();
+							ArrayList<String> paths = new ArrayList<>();
 							for (int i = 0; i < dataSet.size(); i++) {
 								if (!multiSelector.isSelected(i, 0)) {
-									dataSet.get(i).delete(db);
+									Image image = dataSet.get(i);
+									image.delete(db);
+									paths.add(image.getPath().toString());
 								}
 							}
+							// Refresh gallery after deletion
+							String[] array = paths.toArray(new String[0]);
+							MediaScannerConnection.scanFile(this, array, null, null);
 							setResult(RESULT_OK);
 							finish();
 						}).start();

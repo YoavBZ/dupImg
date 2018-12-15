@@ -8,7 +8,7 @@ import java.util.List;
 @Dao
 public interface ImageDao {
 
-	@Query("SELECT * FROM images")
+	@Query("SELECT * FROM images ORDER BY dateTaken DESC")
 	List<Image> getAll();
 
 	@Query("SELECT COUNT(*) FROM images")

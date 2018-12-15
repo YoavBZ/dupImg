@@ -1,12 +1,14 @@
 package yoavbz.dupimg;
 
 import android.Manifest;
-import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.widget.Toast;
 import com.github.paolorotolo.appintro.AppIntro;
 import com.github.paolorotolo.appintro.AppIntroFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
@@ -32,7 +34,7 @@ public class IntroActivity extends AppIntro {
 		permissionSlide.setTitle("App Permissions");
 		permissionSlide.setDescription(
 				"In order to scan and modify files, please click the 'Next' button and approve the asked permissions");
-		permissionSlide.setImageDrawable(R.drawable.ic_menu_gallery);
+		permissionSlide.setImageDrawable(R.drawable.permissions);
 		permissionSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AppIntroFragment.newInstance(permissionSlide));
 
@@ -41,7 +43,7 @@ public class IntroActivity extends AppIntro {
 		SliderPage doneSlide = new SliderPage();
 		doneSlide.setTitle("Done!");
 		doneSlide.setDescription("We are good to go :)");
-		doneSlide.setImageDrawable(R.drawable.ic_menu_gallery);
+		doneSlide.setImageDrawable(R.drawable.ic_done);
 		doneSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AppIntroFragment.newInstance(doneSlide));
 
@@ -55,16 +57,32 @@ public class IntroActivity extends AppIntro {
 	@Override
 	public void onDonePressed(Fragment currentFragment) {
 		// Returning to the main activity
-		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-		pref.edit().putBoolean("showIntro", false).apply();
+		PreferenceManager.getDefaultSharedPreferences(getBaseContext()).edit()
+		                 .putBoolean("showIntro", false)
+		                 .apply();
 		resultOk = true;
 		setResult(RESULT_OK);
 		finish();
 	}
 
 	@Override
+	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+		if (grantResults.length == 0) {
+			return;
+		}
+		for (int result : grantResults) {
+			if (result == PackageManager.PERMISSION_DENIED) {
+				Toast.makeText(this, "Cannot launch app without permissions", Toast.LENGTH_LONG).show();
+				finish();
+				return;
+			}
+		}
+	}
+
+	@Override
 	protected void onDestroy() {
-		if (!resultOk){
+		if (!resultOk) {
 			setResult(RESULT_CANCELED);
 		}
 		super.onDestroy();

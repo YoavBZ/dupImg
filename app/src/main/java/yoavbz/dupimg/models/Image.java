@@ -15,8 +15,10 @@ import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.database.ImageDao;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -24,16 +26,6 @@ import java.util.Date;
 
 @Entity(tableName = "images")
 public class Image implements Parcelable, Clusterable {
-
-	public static final Creator<Image> CREATOR = new Creator<Image>() {
-		public Image createFromParcel(Parcel in) {
-			return new Image(in);
-		}
-
-		public Image[] newArray(int size) {
-			return new Image[size];
-		}
-	};
 
 	@PrimaryKey
 	@NonNull
@@ -46,18 +38,26 @@ public class Image implements Parcelable, Clusterable {
 
 	public Image(@NonNull Path path, ImageClassifier classifier) {
 		this.path = path;
+		DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 		try {
-			ExifInterface exif = new ExifInterface(this.path.toString());
+			// Extracting DATETIME_ORIGINAL
+			ExifInterface exif = new ExifInterface(path.toString());
 			String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
 			if (date == null) {
 				date = exif.getAttribute(ExifInterface.TAG_DATETIME);
 			}
-			DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 			dateTaken = dateFormat.parse(date);
-			point = classifier.recognizeImage(getBitmap());
-		} catch (IOException | ParseException e) {
-			Log.e("Image", "Got an exception while constructing image: " + e);
+		} catch (IOException | NullPointerException | ParseException e) {
+			Log.e(MainActivity.TAG, "Image - Got an exception while constructing image", e);
+			try {
+				// Extracting creationTime attribute
+				BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class);
+				dateTaken = new Date(attributes.creationTime().toMillis());
+			} catch (IOException e1) {
+				Log.e(MainActivity.TAG, "Image - Failed to read creationTime attribute from image", e);
+			}
 		}
+		point = classifier.recognizeImage(getBitmap());
 	}
 
 	public Image(String path, ImageClassifier classifier) {
@@ -108,19 +108,28 @@ public class Image implements Parcelable, Clusterable {
 	}
 
 	// --- Clusterable interface functions ---
+
 	@Override
 	public double[] getPoint() {
 		return point;
 	}
 
-
 	// --- Parcelable interface functions ---
-
 	private Image(Parcel in) {
 		path = Paths.get(in.readString());
 		dateTaken = new Date(in.readLong());
 		point = in.createDoubleArray();
 	}
+
+	public static final Creator<Image> CREATOR = new Creator<Image>() {
+		public Image createFromParcel(Parcel in) {
+			return new Image(in);
+		}
+
+		public Image[] newArray(int size) {
+			return new Image[size];
+		}
+	};
 
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {

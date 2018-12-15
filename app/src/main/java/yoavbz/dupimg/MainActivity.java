@@ -8,7 +8,6 @@ import android.app.job.JobScheduler;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -32,8 +31,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 import com.bumptech.glide.Glide;
+import com.github.isabsent.filepicker.SimpleFilePickerDialog;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.background.NotificationJobService;
@@ -48,11 +47,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity
-		implements NavigationView.OnNavigationItemSelectedListener, MediaGalleryView.OnImageClicked {
+		implements NavigationView.OnNavigationItemSelectedListener, MediaGalleryView.OnImageClicked, SimpleFilePickerDialog.InteractionListenerString {
 
 	public static final String TAG = "dupImg";
 	private static final int JOB_ID = 1;
@@ -165,7 +165,10 @@ public class MainActivity extends AppCompatActivity
 		                                        .getBoolean("shouldRescan", true);
 		if (shouldRescan) {
 			// Clear database and rescan all images
-			rescanImages();
+			String dcim = Environment.getExternalStoragePublicDirectory(
+					Environment.DIRECTORY_DCIM).getAbsolutePath();
+			Path cameraDir = Paths.get(dcim, "Camera");
+			rescanImages(cameraDir, true);
 		} else {
 			// Get all images from the database
 			fetchAndCluster();
@@ -175,8 +178,8 @@ public class MainActivity extends AppCompatActivity
 	/**
 	 * Scanning all images in the Camera directory, classifying and clustering them, and displaying them
 	 */
-	private void rescanImages() {
-		asyncTask = new ClassifyAndCluster(this).execute();
+	private void rescanImages(Path dir, boolean clearDb) {
+		asyncTask = new ClassifyAndCluster(this).execute(dir, clearDb);
 	}
 
 	/**
@@ -221,20 +224,6 @@ public class MainActivity extends AppCompatActivity
 		}
 	}
 
-	@Override
-	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-		if (grantResults.length == 0) {
-			return;
-		}
-		for (int result : grantResults) {
-			if (result == PackageManager.PERMISSION_DENIED) {
-				Toast.makeText(this, "Cannot launch app without permissions", Toast.LENGTH_LONG).show();
-				finish();
-				return;
-			}
-		}
-	}
-
 	/**
 	 * When Back-key is being pressed, closing the drawer if opened, otherwise closing app.
 	 */
@@ -243,6 +232,8 @@ public class MainActivity extends AppCompatActivity
 		DrawerLayout drawer = findViewById(R.id.drawer_layout);
 		if (drawer.isDrawerOpen(GravityCompat.START)) {
 			drawer.closeDrawer(GravityCompat.START);
+		} else if (!asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
+			moveTaskToBack(true);
 		} else {
 			super.onBackPressed();
 		}
@@ -258,7 +249,10 @@ public class MainActivity extends AppCompatActivity
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 			case R.id.action_rescan:
-				rescanImages();
+				String dcim = Environment.getExternalStoragePublicDirectory(
+						Environment.DIRECTORY_DCIM).getAbsolutePath();
+				Path cameraDir = Paths.get(dcim, "Camera");
+				rescanImages(cameraDir, true);
 				return true;
 		}
 		return super.onOptionsItemSelected(item);
@@ -268,8 +262,10 @@ public class MainActivity extends AppCompatActivity
 	public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 		// Handle navigation view item clicks here.
 		switch (item.getItemId()) {
-			case R.id.nav_photos:
+			case R.id.custom_dir:
 				// All photos
+				showListItemDialog("Select directory to scan:", null,
+				                   SimpleFilePickerDialog.CompositeMode.FOLDER_ONLY_DIRECT_CHOICE_IMMEDIATE, null);
 				break;
 			case R.id.nav_about:
 				final SpannableString message =
@@ -287,6 +283,27 @@ public class MainActivity extends AppCompatActivity
 		DrawerLayout drawer = findViewById(R.id.drawer_layout);
 		drawer.closeDrawer(GravityCompat.START);
 		return true;
+	}
+
+	@Override
+	public void showListItemDialog(String title, String folderPath, SimpleFilePickerDialog.CompositeMode mode, String dialogTag) {
+		SimpleFilePickerDialog.build(folderPath, mode)
+		                      .title(title)
+		                      .show(this, "dir_dialog");
+	}
+
+	@Override
+	public boolean onResult(@NonNull String dialogTag, int which, @NonNull Bundle extras) {
+		String customPath = extras.getString(SimpleFilePickerDialog.SELECTED_SINGLE_PATH);
+		Log.d(TAG, "onResult: Selected customPath = " + customPath);
+		if (customPath != null) {
+			rescanImages(Paths.get(customPath), false);
+			PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit()
+			                 .putBoolean("shouldRescan", true)
+			                 .apply();
+			return true;
+		}
+		return false;
 	}
 
 	private static class FetchAndCluster extends AsyncTask<Void, Integer, Void> {
@@ -365,12 +382,11 @@ public class MainActivity extends AppCompatActivity
 		}
 	}
 
-	private static class ClassifyAndCluster extends AsyncTask<Void, Integer, Void> {
+	private static class ClassifyAndCluster extends AsyncTask<Object, Integer, Void> {
 
 		private static final int NOTIFICATION_ID = 1;
 		private final WeakReference<MainActivity> weakReference;
 		private ImageClassifier classifier;
-		private Path cameraDir;
 		private NotificationCompat.Builder mBuilder;
 
 		ClassifyAndCluster(MainActivity mainActivity) {
@@ -383,9 +399,6 @@ public class MainActivity extends AppCompatActivity
 			if (activity != null) {
 				activity.list.clear();
 				activity.clusters.clear();
-				String dcim = Environment.getExternalStoragePublicDirectory(
-						Environment.DIRECTORY_DCIM).getAbsolutePath();
-				cameraDir = Paths.get(dcim, "Camera");
 				Log.d(TAG, "ClassifyAndCluster: Starting image classification asynchronously..");
 
 				activity.progressBar.setProgress(0);
@@ -417,17 +430,25 @@ public class MainActivity extends AppCompatActivity
 			notificationManager.createNotificationChannel(notificationChannel);
 		}
 
+		/**
+		 * Iterating the given directory files, classifying them and clustering them into similarity clusters
+		 *
+		 * @param objects contains two objects: [0] - directory path to scan
+		 *                [1] - boolean value which determine whether to reset the database
+		 * @return null
+		 */
 		@Override
-		protected Void doInBackground(Void... voids) {
+		protected Void doInBackground(Object... objects) {
 			MainActivity activity = weakReference.get();
 			if (activity != null) {
 				try {
-					long imagesNum = Files.list(cameraDir).count();
+					Path dir = (Path) objects[0];
+					long imagesNum = Files.list(dir).count();
 					Log.d(TAG, "ClassifyAndCluster: Found " + imagesNum + " images on DCIM directory");
 
 					classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
 					                                 "labels.txt", 224);
-					Files.walk(cameraDir)
+					Files.list(dir)
 					     .filter((Path path) -> path.toString().endsWith(".jpg"))
 					     .forEach((Path path) -> {
 						     if (!isCancelled()) {
@@ -440,10 +461,14 @@ public class MainActivity extends AppCompatActivity
 							     publishProgress(Math.max(1, (int) (100 / imagesNum)));
 						     }
 					     });
+					Collections.reverse(activity.list);
 					classifier.close();
-					ImageDatabase db = ImageDatabase.getAppDatabase(activity);
-					db.clearAllTables();
-					db.imageDao().insert(activity.list);
+					boolean resetDb = (boolean) objects[1];
+					if (resetDb) {
+						ImageDatabase db = ImageDatabase.getAppDatabase(activity);
+						db.clearAllTables();
+						db.imageDao().insert(activity.list);
+					}
 					if (!isCancelled()) {
 						DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.85, 2);
 						activity.clusters = clusterer.cluster(activity.list);
@@ -478,8 +503,7 @@ public class MainActivity extends AppCompatActivity
 				activity.galleryView.setVisibility(View.VISIBLE);
 				activity.galleryView.setImageClusters(activity.clusters);
 				activity.galleryView.notifyDataSetChanged();
-				PreferenceManager.getDefaultSharedPreferences(activity)
-				                 .edit()
+				PreferenceManager.getDefaultSharedPreferences(activity).edit()
 				                 .putBoolean("shouldRescan", false)
 				                 .apply();
 			}

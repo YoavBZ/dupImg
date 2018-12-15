@@ -47,7 +47,7 @@ public class NotificationJobService extends JobService {
 				                                 224);
 
 				SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-				boolean isFirstRun = pref.getBoolean("lastRun", true);
+				boolean isFirstRun = pref.getBoolean("firstRun", true);
 
 				pref.edit().putBoolean("firstRun", false).apply();
 
