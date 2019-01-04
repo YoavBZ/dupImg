@@ -2,10 +2,9 @@ package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
 import android.content.Context;
+import android.net.Uri;
 import yoavbz.dupimg.models.Image;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.stream.Collectors;
@@ -26,6 +25,7 @@ public abstract class ImageDatabase extends RoomDatabase {
 
 	public abstract ImageDao imageDao();
 
+	@SuppressWarnings("WeakerAccess")
 	static class Converters {
 		@TypeConverter
 		public static Date fromTimestamp(Long value) {
@@ -38,13 +38,13 @@ public abstract class ImageDatabase extends RoomDatabase {
 		}
 
 		@TypeConverter
-		public static String pathToString(Path path) {
-			return path.toString();
+		public static String uriToString(Uri uri) {
+			return uri.toString();
 		}
 
 		@TypeConverter
-		public static Path pathToString(String path) {
-			return Paths.get(path);
+		public static Uri stringToUri(String uri) {
+			return Uri.parse(uri);
 		}
 
 		@TypeConverter

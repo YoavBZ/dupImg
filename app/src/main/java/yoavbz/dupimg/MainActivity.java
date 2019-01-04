@@ -1,21 +1,18 @@
 package yoavbz.dupimg;
 
 import android.app.AlertDialog;
-import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.*;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
-import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -28,43 +25,51 @@ import android.text.util.Linkify;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import com.bumptech.glide.Glide;
-import com.github.isabsent.filepicker.SimpleFilePickerDialog;
 import org.apache.commons.math3.ml.clustering.Cluster;
-import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
+import yoavbz.dupimg.background.ClassificationTask;
+import yoavbz.dupimg.background.FetchingTask;
 import yoavbz.dupimg.background.NotificationJobService;
-import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.gallery.MediaGalleryView;
 import yoavbz.dupimg.models.Image;
 
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends AppCompatActivity
-		implements NavigationView.OnNavigationItemSelectedListener, MediaGalleryView.OnImageClicked, SimpleFilePickerDialog.InteractionListenerString {
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
+		MediaGalleryView.OnImageClicked {
 
 	public static final String TAG = "dupImg";
 	private static final int JOB_ID = 1;
 	private static final int IMAGE_CLUSTER_ACTIVITY_CODE = 0;
 	private static final int INTRO_ACTIVITY_CODE = 1;
-	private List<Image> list = new ArrayList<>();
-	private List<Cluster<Image>> clusters = new ArrayList<>();
-	private MediaGalleryView galleryView;
+	private static final int CHANGE_DEFAULT_DIR_ACTIVITY_CODE = 2;
+	private static final int SCAN_CUSTOM_DIR_ACTIVITY_CODE = 3;
+	public static final String ACTION_UPDATE_UI = "yoavbz.dupimg.ACTION_UPDATE_UI";
+
+	public List<Image> list = new ArrayList<>();
+	public List<Cluster<Image>> clusters = new ArrayList<>();
+
+	public MediaGalleryView galleryView;
+
 	private AsyncTask asyncTask;
-	private NotificationManagerCompat notificationManager;
-	private TextView textView;
-	private ProgressBar progressBar;
+	public NotificationManagerCompat notificationManager;
+	public TextView textView;
+	public ProgressBar progressBar;
+
+	private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			if (ACTION_UPDATE_UI.equals(intent.getAction())) {
+				fetchAndCluster();
+			}
+		}
+	};
 
 	/**
 	 * Launching IntoActivity in case of first use, otherwise continuing normally.
@@ -77,7 +82,7 @@ public class MainActivity extends AppCompatActivity
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		if (pref.getBoolean("showIntro", true)) {
 			Intent introIntent = new Intent(this, IntroActivity.class);
-			startActivityForResult(introIntent, 1);
+			startActivityForResult(introIntent, INTRO_ACTIVITY_CODE);
 		} else {
 			init();
 		}
@@ -94,12 +99,14 @@ public class MainActivity extends AppCompatActivity
 
 	@Override
 	protected void onDestroy() {
-		// Remove notification if asyncTask
-		if (asyncTask != null && asyncTask.getStatus() != AsyncTask.Status.FINISHED) {
+		// Remove notification if asyncTask isn't done yet
+		if (asyncTask != null) {
+			asyncTask.cancel(true);
 			NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 			notificationManager.cancel(1);
 			asyncTask = null;
 		}
+		LocalBroadcastManager.getInstance(this).unregisterReceiver(broadcastReceiver);
 		super.onDestroy();
 	}
 
@@ -161,14 +168,18 @@ public class MainActivity extends AppCompatActivity
 		textView = findViewById(R.id.content_text);
 		progressBar = findViewById(R.id.classification_progress);
 
+		// Handling BroadcastReceiver
+		IntentFilter intentFilter = new IntentFilter();
+		intentFilter.addAction(ACTION_UPDATE_UI);
+		LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter);
+
 		boolean shouldRescan = PreferenceManager.getDefaultSharedPreferences(MainActivity.this)
 		                                        .getBoolean("shouldRescan", true);
 		if (shouldRescan) {
 			// Clear database and rescan all images
-			String dcim = Environment.getExternalStoragePublicDirectory(
-					Environment.DIRECTORY_DCIM).getAbsolutePath();
-			Path cameraDir = Paths.get(dcim, "Camera");
-			rescanImages(cameraDir, true);
+			String uriString = PreferenceManager.getDefaultSharedPreferences(this)
+			                                    .getString("dirUri", null);
+			rescanImages(Uri.parse(uriString), true);
 		} else {
 			// Get all images from the database
 			fetchAndCluster();
@@ -178,15 +189,15 @@ public class MainActivity extends AppCompatActivity
 	/**
 	 * Scanning all images in the Camera directory, classifying and clustering them, and displaying them
 	 */
-	private void rescanImages(Path dir, boolean clearDb) {
-		asyncTask = new ClassifyAndCluster(this).execute(dir, clearDb);
+	private void rescanImages(Uri dir, boolean clearDb) {
+		asyncTask = new ClassificationTask(this).execute(dir, clearDb);
 	}
 
 	/**
 	 * Loading all images from the database, clustering them and displaying them
 	 */
 	private void fetchAndCluster() {
-		asyncTask = new FetchAndCluster(this).execute();
+		asyncTask = new FetchingTask(this).execute();
 	}
 
 	/**
@@ -199,7 +210,7 @@ public class MainActivity extends AppCompatActivity
 		// Starting ImageClusterActivity with correct parameters
 		Intent intent = new Intent(this, ImageClusterActivity.class);
 		intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) clusters.get(pos).getPoints());
-		startActivityForResult(intent, 0);
+		startActivityForResult(intent, IMAGE_CLUSTER_ACTIVITY_CODE);
 	}
 
 	/**
@@ -211,16 +222,34 @@ public class MainActivity extends AppCompatActivity
 	 */
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == IMAGE_CLUSTER_ACTIVITY_CODE && resultCode == RESULT_OK) {
-			fetchAndCluster();
-		} else if (requestCode == INTRO_ACTIVITY_CODE) {
-			if (resultCode == RESULT_OK) {
-				// Intro finished successfully
-				init();
-			} else {
-				// Intro finished unsuccessfully
-				finish();
-			}
+		switch (requestCode) {
+			case IMAGE_CLUSTER_ACTIVITY_CODE:
+				if(resultCode == RESULT_OK) {
+					fetchAndCluster();
+				}
+				break;
+			case INTRO_ACTIVITY_CODE:
+				if(resultCode == RESULT_OK) {
+					init();
+				} else {
+					finish();
+				}
+				break;
+			case CHANGE_DEFAULT_DIR_ACTIVITY_CODE:
+				if (resultCode == RESULT_OK && data != null) {
+					Uri dirUri = data.getData();
+					SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+					pref.edit()
+					    .putString("dirUri", dirUri.toString())
+					    .apply();
+					rescanImages(dirUri, true);
+				}
+				break;
+			case SCAN_CUSTOM_DIR_ACTIVITY_CODE:
+				if (resultCode == RESULT_OK && data != null) {
+					Toast.makeText(this, "Refresh to return to default directory", Toast.LENGTH_LONG).show();
+					rescanImages(data.getData(), false);
+				}
 		}
 	}
 
@@ -246,13 +275,21 @@ public class MainActivity extends AppCompatActivity
 	}
 
 	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		return asyncTask == null || asyncTask.getStatus().equals(AsyncTask.Status.FINISHED);
+	}
+
+	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
+			case R.id.action_refresh:
+				fetchAndCluster();
+				break;
 			case R.id.action_rescan:
-				String dcim = Environment.getExternalStoragePublicDirectory(
-						Environment.DIRECTORY_DCIM).getAbsolutePath();
-				Path cameraDir = Paths.get(dcim, "Camera");
-				rescanImages(cameraDir, true);
+				String uriString = PreferenceManager.getDefaultSharedPreferences(this)
+				                                    .getString("dirUri", null);
+				Uri uri = Uri.parse(uriString);
+				rescanImages(uri, true);
 				return true;
 		}
 		return super.onOptionsItemSelected(item);
@@ -262,10 +299,17 @@ public class MainActivity extends AppCompatActivity
 	public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 		// Handle navigation view item clicks here.
 		switch (item.getItemId()) {
+			case R.id.change_default_dir:
+				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+				intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+				intent.putExtra("scanType", "normal");
+				startActivityForResult(intent, CHANGE_DEFAULT_DIR_ACTIVITY_CODE);
+				break;
 			case R.id.custom_dir:
-				// All photos
-				showListItemDialog("Select directory to scan:", null,
-				                   SimpleFilePickerDialog.CompositeMode.FOLDER_ONLY_DIRECT_CHOICE_IMMEDIATE, null);
+				intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+				intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+				intent.putExtra("scanType", "custom");
+				startActivityForResult(intent, SCAN_CUSTOM_DIR_ACTIVITY_CODE);
 				break;
 			case R.id.nav_about:
 				final SpannableString message =
@@ -283,245 +327,5 @@ public class MainActivity extends AppCompatActivity
 		DrawerLayout drawer = findViewById(R.id.drawer_layout);
 		drawer.closeDrawer(GravityCompat.START);
 		return true;
-	}
-
-	@Override
-	public void showListItemDialog(String title, String folderPath, SimpleFilePickerDialog.CompositeMode mode, String dialogTag) {
-		SimpleFilePickerDialog.build(folderPath, mode)
-		                      .title(title)
-		                      .show(this, "dir_dialog");
-	}
-
-	@Override
-	public boolean onResult(@NonNull String dialogTag, int which, @NonNull Bundle extras) {
-		String customPath = extras.getString(SimpleFilePickerDialog.SELECTED_SINGLE_PATH);
-		Log.d(TAG, "onResult: Selected customPath = " + customPath);
-		if (customPath != null) {
-			rescanImages(Paths.get(customPath), false);
-			PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit()
-			                 .putBoolean("shouldRescan", true)
-			                 .apply();
-			return true;
-		}
-		return false;
-	}
-
-	private static class FetchAndCluster extends AsyncTask<Void, Integer, Void> {
-
-		private final WeakReference<MainActivity> weakReference;
-
-		FetchAndCluster(MainActivity activity) {
-			this.weakReference = new WeakReference<>(activity);
-		}
-
-		@Override
-		protected void onPreExecute() {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				activity.list.clear();
-				activity.clusters.clear();
-				Log.d(TAG, "MainActivity: fetchAndCluster: Fetching images from DB");
-
-				ProgressBar progressBar = activity.findViewById(R.id.classification_progress);
-				TextView textView = activity.findViewById(R.id.content_text);
-
-				textView.setText("Loading images..");
-				activity.galleryView.setImageClusters(activity.clusters);
-				activity.galleryView.notifyDataSetChanged();
-				progressBar.setIndeterminate(true);
-				progressBar.setVisibility(View.VISIBLE);
-				textView.setVisibility(View.VISIBLE);
-			}
-		}
-
-		@Override
-		protected Void doInBackground(Void... voids) {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				try {
-					activity.list = ImageDatabase.getAppDatabase(activity).imageDao().getAll();
-					Log.d(TAG, "MainActivity - fetchAndCluster: Got " + activity.list.size() + " images");
-					DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.85, 2);
-					activity.clusters = clusterer.cluster(activity.list);
-					Log.d(TAG, "MainActivity - fetchAndCluster: Clustered " + activity.clusters.size() + " clusters");
-				} catch (Exception e) {
-					Log.e(TAG, "MainActivity - doInBackground: Got an exception!", e);
-					cancel(true);
-				}
-			}
-			return null;
-		}
-
-		@Override
-		protected void onPostExecute(Void result) {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				ProgressBar progressBar = activity.findViewById(R.id.classification_progress);
-				TextView textView = activity.findViewById(R.id.content_text);
-
-				progressBar.setVisibility(View.GONE);
-				textView.setVisibility(View.GONE);
-				activity.galleryView.setImageClusters(activity.clusters);
-				activity.galleryView.notifyDataSetChanged();
-			}
-		}
-
-		@Override
-		protected void onCancelled() {
-			Log.d(TAG, "FetchAndCluster - onCancelled: Cancelling task");
-
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				ProgressBar progressBar = activity.findViewById(R.id.classification_progress);
-				TextView textView = activity.findViewById(R.id.content_text);
-
-				textView.setText("Got an error :(");
-				textView.setVisibility(View.VISIBLE);
-				progressBar.setVisibility(View.GONE);
-			}
-		}
-	}
-
-	private static class ClassifyAndCluster extends AsyncTask<Object, Integer, Void> {
-
-		private static final int NOTIFICATION_ID = 1;
-		private final WeakReference<MainActivity> weakReference;
-		private ImageClassifier classifier;
-		private NotificationCompat.Builder mBuilder;
-
-		ClassifyAndCluster(MainActivity mainActivity) {
-			weakReference = new WeakReference<>(mainActivity);
-		}
-
-		@Override
-		protected void onPreExecute() {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				activity.list.clear();
-				activity.clusters.clear();
-				Log.d(TAG, "ClassifyAndCluster: Starting image classification asynchronously..");
-
-				activity.progressBar.setProgress(0);
-				activity.textView.setText("Scanning images..");
-				activity.galleryView.setVisibility(View.GONE);
-				activity.progressBar.setIndeterminate(false);
-				activity.progressBar.setVisibility(View.VISIBLE);
-				activity.textView.setVisibility(View.VISIBLE);
-
-				NotificationManagerCompat notificationManager = NotificationManagerCompat.from(activity);
-				setNotificationChannel(activity);
-				mBuilder = new NotificationCompat.Builder(activity, "default")
-						.setSmallIcon(R.drawable.ic_menu_gallery)
-						.setContentTitle("Scanning images..")
-						.setPriority(NotificationCompat.PRIORITY_LOW)
-						.setOngoing(true)
-						.setProgress(100, 0, false);
-				notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
-			}
-		}
-
-		private void setNotificationChannel(MainActivity activity) {
-			NotificationChannel notificationChannel = new NotificationChannel("default", "default",
-			                                                                  NotificationManager.IMPORTANCE_LOW);
-			notificationChannel.enableLights(false);
-			notificationChannel.enableVibration(false);
-			NotificationManager notificationManager = (NotificationManager) activity.getSystemService(
-					NOTIFICATION_SERVICE);
-			notificationManager.createNotificationChannel(notificationChannel);
-		}
-
-		/**
-		 * Iterating the given directory files, classifying them and clustering them into similarity clusters
-		 *
-		 * @param objects contains two objects: [0] - directory path to scan
-		 *                [1] - boolean value which determine whether to reset the database
-		 * @return null
-		 */
-		@Override
-		protected Void doInBackground(Object... objects) {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				try {
-					Path dir = (Path) objects[0];
-					long imagesNum = Files.list(dir).count();
-					Log.d(TAG, "ClassifyAndCluster: Found " + imagesNum + " images on DCIM directory");
-
-					classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
-					                                 "labels.txt", 224);
-					Files.list(dir)
-					     .filter((Path path) -> path.toString().endsWith(".jpg"))
-					     .forEach((Path path) -> {
-						     if (!isCancelled()) {
-							     Image image = new Image(path, classifier);
-							     if (image.getDateTaken() != null) {
-								     activity.list.add(image);
-							     } else {
-								     Log.w(TAG, "ClassifyAndCluster: Skipping image: " + path.getFileName());
-							     }
-							     publishProgress(Math.max(1, (int) (100 / imagesNum)));
-						     }
-					     });
-					Collections.reverse(activity.list);
-					classifier.close();
-					boolean resetDb = (boolean) objects[1];
-					if (resetDb) {
-						ImageDatabase db = ImageDatabase.getAppDatabase(activity);
-						db.clearAllTables();
-						db.imageDao().insert(activity.list);
-					}
-					if (!isCancelled()) {
-						DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.85, 2);
-						activity.clusters = clusterer.cluster(activity.list);
-						Log.d(TAG, "ClassifyAndCluster: Clustered " + activity.clusters.size() + " clusters");
-					}
-				} catch (IOException e) {
-					Log.e(TAG, "ClassifyAndCluster: Got an exception", e);
-					cancel(true);
-				}
-			}
-			return null;
-		}
-
-		@Override
-		protected void onProgressUpdate(Integer... values) {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				activity.progressBar.incrementProgressBy(values[0]);
-				mBuilder.setProgress(100, activity.progressBar.getProgress(), false);
-
-				activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
-			}
-		}
-
-		@Override
-		protected void onPostExecute(Void result) {
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				activity.notificationManager.cancel(NOTIFICATION_ID);
-				activity.progressBar.setVisibility(View.GONE);
-				activity.textView.setVisibility(View.GONE);
-				activity.galleryView.setVisibility(View.VISIBLE);
-				activity.galleryView.setImageClusters(activity.clusters);
-				activity.galleryView.notifyDataSetChanged();
-				PreferenceManager.getDefaultSharedPreferences(activity).edit()
-				                 .putBoolean("shouldRescan", false)
-				                 .apply();
-			}
-		}
-
-		@Override
-		protected void onCancelled() {
-			Log.d(TAG, "ClassifyAndCluster - onCancelled: Cancelling task");
-			MainActivity activity = weakReference.get();
-			if (activity != null) {
-				activity.notificationManager.cancel(NOTIFICATION_ID);
-				activity.textView.setText("Got an error :(");
-				activity.textView.setVisibility(View.VISIBLE);
-				activity.progressBar.setVisibility(View.GONE);
-				PreferenceManager.getDefaultSharedPreferences(activity).edit()
-				                 .putBoolean("shouldRescan", true)
-				                 .apply();
-			}
-		}
 	}
 }

@@ -74,7 +74,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 		Image image = mDataSet.get(position);
 		imageView = itemView.findViewById(R.id.iv);
 		Glide.with(activity)
-		     .load(image.getPath().toString())
+		     .load(image.getUri())
 		     .listener(new RequestListener<Drawable>() {
 			     @Override
 			     public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {

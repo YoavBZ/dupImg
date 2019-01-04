@@ -121,18 +121,12 @@ public class ImageClusterActivity extends AppCompatActivity
 						Toast.makeText(this, "Deleting duplicates..", Toast.LENGTH_LONG).show();
 						// Deleting unselected images
 						new Thread(() -> {
-							ImageDao db = ImageDatabase.getAppDatabase(this).imageDao();
-							ArrayList<String> paths = new ArrayList<>();
 							for (int i = 0; i < dataSet.size(); i++) {
 								if (!multiSelector.isSelected(i, 0)) {
 									Image image = dataSet.get(i);
-									image.delete(db);
-									paths.add(image.getPath().toString());
+									image.delete(this);
 								}
 							}
-							// Refresh gallery after deletion
-							String[] array = paths.toArray(new String[0]);
-							MediaScannerConnection.scanFile(this, array, null, null);
 							setResult(RESULT_OK);
 							finish();
 						}).start();

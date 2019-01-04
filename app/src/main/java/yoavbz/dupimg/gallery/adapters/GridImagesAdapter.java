@@ -17,6 +17,7 @@ import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.MediaGalleryView;
 import yoavbz.dupimg.models.Image;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +28,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	private MediaGalleryView.OnImageClicked mClickListener;
 	private int mHeight;
 	private int mWidth;
+	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
 	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters, Drawable imgPlaceHolderResId) {
 		super();
@@ -58,12 +60,16 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 		}
 		holder.clusterThumbnail.setLayoutParams(params);
 		List<Image> images = mDataset.get(holder.getAdapterPosition()).getPoints();
-		String path = images.get(0).getPath().toString();
+		Image firstImage = images.get(0);
 		Glide.with(mContext)
-		     .load(path)
+		     .load(firstImage.getUri())
 		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
 		     .into(holder.clusterThumbnail);
+		// Setting cluster size
 		holder.clusterSize.setText(String.valueOf(images.size()));
+		// Setting cluster date
+		String timestamp = dateFormat.format(firstImage.getDateTaken());
+		holder.timestamp.setText(timestamp);
 	}
 
 	public void setImgPlaceHolder(Drawable imgPlaceHolderResId) {
@@ -87,11 +93,13 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	class ViewHolder extends RecyclerView.ViewHolder {
 		ImageView clusterThumbnail;
 		TextView clusterSize;
+		TextView timestamp;
 
 		ViewHolder(View itemView) {
 			super(itemView);
 			clusterThumbnail = itemView.findViewById(R.id.cluster_thumbnail);
 			clusterSize = itemView.findViewById(R.id.cluster_size);
+			timestamp = itemView.findViewById(R.id.timestamp);
 		}
 	}
 }

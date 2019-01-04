@@ -2,9 +2,13 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
 		xmlns:app="http://schemas.android.com/apk/res-auto">
 
+	<item android:id="@+id/action_refresh"
+			android:title="Refresh"
+			android:orderInCategory="1"
+			app:showAsAction="ifRoom"/>
 	<item android:id="@+id/action_rescan"
 			android:title="Rescan"
-			android:orderInCategory="1"
+			android:orderInCategory="2"
 			app:showAsAction="ifRoom"/>
 
 </menu>

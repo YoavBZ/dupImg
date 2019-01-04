@@ -63,7 +63,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		holder.filename = image.toString();
 
 		Glide.with(mActivity)
-		     .load(image.getPath().toString())
+		     .load(image.getUri())
 		     .apply(new RequestOptions().placeholder(R.drawable.media_gallery_placeholder))
 		     .into(holder.image);
 

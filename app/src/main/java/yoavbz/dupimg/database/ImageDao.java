@@ -1,28 +1,41 @@
 package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
+import android.net.Uri;
 import yoavbz.dupimg.models.Image;
 
 import java.util.List;
 
 @Dao
-public interface ImageDao {
+public abstract class ImageDao {
 
 	@Query("SELECT * FROM images ORDER BY dateTaken DESC")
-	List<Image> getAll();
+	public abstract List<Image> getAll();
 
 	@Query("SELECT COUNT(*) FROM images")
-	int getImageCount();
+	public abstract int getImageCount();
 
 	@Insert(onConflict = OnConflictStrategy.IGNORE)
-	void insert(List<Image> images);
+	public abstract void insert(List<Image> images);
 
 	@Delete
-	void delete(Image images);
+	public abstract void delete(Image images);
 
-	@Query("DELETE FROM images WHERE path LIKE :path")
-	void delete(String path);
+	@Query("DELETE FROM images WHERE uri = :uri")
+	public abstract void delete(Uri uri);
 
-	@Query("DELETE FROM images WHERE path NOT IN (:imagesToKeep)")
-	void deleteNotInList(List<String> imagesToKeep);
+	@Transaction
+	public boolean deleteNotInList(List<Uri> localImages) {
+		boolean deleted = false;
+		for (Uri uri : getAllUris()) {
+			if (!localImages.contains(uri)) {
+				delete(uri);
+				deleted = true;
+			}
+		}
+		return deleted;
+	}
+
+	@Query("SELECT uri FROM images ORDER BY dateTaken DESC")
+	public abstract List<Uri> getAllUris();
 }

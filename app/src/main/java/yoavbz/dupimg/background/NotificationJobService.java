@@ -6,11 +6,13 @@ import android.app.PendingIntent;
 import android.app.job.JobParameters;
 import android.app.job.JobService;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.os.Environment;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.LocalBroadcastManager;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
@@ -22,56 +24,47 @@ import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.models.Image;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NotificationJobService extends JobService {
 
-	private static final String PRIMARY_CHANNEL_ID = "dupImg";
 	private NotificationManager mNotifyManager;
 	private ImageClassifier classifier;
+	private ImageDao db;
+	private Thread thread;
 
 	@Override
 	public boolean onStartJob(JobParameters params) {
 		Log.d(MainActivity.TAG, "NotificationJobService: onStartJob");
 		mNotifyManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-		new Thread(() -> {
+		thread = new Thread(() -> {
 			createNotificationChannel();
+			boolean updateUi = false;
 			try {
 				classifier = new ImageClassifier(NotificationJobService.this,
 				                                 "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
 				                                 224);
 
-				SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-				boolean isFirstRun = pref.getBoolean("firstRun", true);
-
-				pref.edit().putBoolean("firstRun", false).apply();
-
-				// Do nothing in case of first run
-				if (isFirstRun) {
-					return;
-				}
-
-				ImageDao db = ImageDatabase.getAppDatabase(this).imageDao();
+				db = ImageDatabase.getAppDatabase(this).imageDao();
 				// Fetching all the images from the camera directory
-				List<String> localImages = getLocalImages();
+				List<Uri> localImages = getLocalImages();
 				// Removing from the database images that were deleted from local directory
-				db.deleteNotInList(localImages);
-				// Fetching all the images from the database
-				List<Image> dbImages = db.getAll();
+				boolean deletedImages = db.deleteNotInList(localImages);
+				if (deletedImages) {
+					updateUi = true;
+				}
 				// Filtering new local images, which aren't in the database
-				List<Image> newImages = getNewImages(localImages, dbImages);
+				List<Image> newImages = getNewImages(localImages);
 				if (newImages.isEmpty()) {
 					Log.d(MainActivity.TAG, "NotificationJobService: No new images, finishing job..");
 					return;
 				}
 				db.insert(newImages);
 
-				NotificationCompat.Builder builder = new NotificationCompat.Builder(this, PRIMARY_CHANNEL_ID)
+				NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "dupImg")
 						.setContentTitle("dupImg")
 						.setSmallIcon(R.drawable.ic_menu_gallery)
 						.setShowWhen(true)
@@ -80,38 +73,56 @@ public class NotificationJobService extends JobService {
 						.setGroup("dupImg")
 						.setPriority(NotificationCompat.PRIORITY_HIGH);
 
-				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.85, 2);
-				// Construct image clusters and send notifications if necessary
-				processClusters(clusterer.cluster(newImages), builder);
-			} catch (IOException e) {
-				Log.e(MainActivity.TAG, "NotificationJobService: Got an exception while constructing classifier", e);
+				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.7, 2);
+				// Constructing image clusters and send notifications if necessary
+				List<Cluster<Image>> clusters = clusterer.cluster(newImages);
+				processClusters(clusters, builder);
+				// Updating UI in case of new clusters
+				if (!clusters.isEmpty()) {
+					updateUi = true;
+				}
+			} catch (Exception e) {
+				Log.e(MainActivity.TAG, "NotificationJobService: Got an exception", e);
 			} finally {
+				classifier.close();
+				if (updateUi) {
+					Intent intent = new Intent(MainActivity.ACTION_UPDATE_UI);
+					LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+				}
 				jobFinished(params, false);
 			}
-		}).start();
-
+		});
+		thread.start();
 		return true;
 	}
 
-	private List<Image> getNewImages(List<String> localImages, List<Image> dbImages) {
+	private List<Image> getNewImages(List<Uri> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
-		// Remove images that are already in the database from the local images list, to filter new ones
-		localImages.removeIf((String fileName) -> dbImages.stream().anyMatch((Image image) -> fileName.equals(
-				image.getPath().toString())));
-		for (String newImage : localImages) {
-			Image image = new Image(newImage, classifier);
-			newImages.add(image);
+		// Filtering images that are already in the database
+		localImages.removeAll(db.getAllUris());
+		for (Uri newImage : localImages) {
+			Image image;
+			try {
+				image = new Image(DocumentFile.fromSingleUri(this, newImage), this, classifier);
+				newImages.add(image);
+			} catch (IOException e) {
+				Log.e(MainActivity.TAG, "getNewImages: ", e);
+			}
 		}
 		return newImages;
 	}
 
-	private List<String> getLocalImages() {
-		List<String> images = new ArrayList<>();
-		String dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
-		Path cameraDir = Paths.get(dcim, "Camera");
-		File[] files = cameraDir.toFile().listFiles((dir, name) -> name.endsWith(".jpg"));
-		for (File file : files) {
-			images.add(file.getAbsolutePath());
+	private List<Uri> getLocalImages() {
+		List<Uri> images = new ArrayList<>();
+		String uriString = PreferenceManager.getDefaultSharedPreferences(this)
+		                                    .getString("dirUri", null);
+		Uri uri = Uri.parse(uriString);
+		DocumentFile[] docs = DocumentFile.fromTreeUri(NotificationJobService.this, uri).listFiles();
+		for (DocumentFile doc : docs) {
+			String type = doc.getType();
+			if (type != null && type.equals("image/jpeg")) {
+				images.add(doc.getUri());
+			}
 		}
 		return images;
 	}
@@ -123,21 +134,26 @@ public class NotificationJobService extends JobService {
 			intent.putParcelableArrayListExtra("IMAGES", images);
 			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
 			                                                        PendingIntent.FLAG_UPDATE_CURRENT);
-			Bitmap previewImg = images.get(0).getBitmap();
-			builder.setContentIntent(pendingIntent)
-			       .setContentTitle("Found " + images.size() + " new duplicates!")
-			       .setLargeIcon(previewImg)
-			       .setStyle(new NotificationCompat.BigPictureStyle()
-					                 .bigPicture(previewImg)
-					                 .bigLargeIcon(null));
-			mNotifyManager.notify(i, builder.build());
+			try (InputStream inputStream = getContentResolver().openInputStream(images.get(0).getUri())) {
+				Bitmap previewImg = BitmapFactory.decodeStream(inputStream);
+//			Bitmap previewImg = images.get(0).getBitmap(inputStream);
+				builder.setContentIntent(pendingIntent)
+				       .setContentTitle("Found " + images.size() + " new duplicates!")
+				       .setLargeIcon(previewImg)
+				       .setStyle(new NotificationCompat.BigPictureStyle()
+						                 .bigPicture(previewImg)
+						                 .bigLargeIcon(null));
+				mNotifyManager.notify(i, builder.build());
+			} catch (IOException e) {
+				Log.e(MainActivity.TAG, "processClusters: ", e);
+			}
 		}
 	}
 
 	private void createNotificationChannel() {
 		// Create the NotificationChannel with all the parameters.
 		NotificationChannel notificationChannel = new NotificationChannel(
-				PRIMARY_CHANNEL_ID, "Background Notification", NotificationManager.IMPORTANCE_HIGH);
+				"dupImg", "Background Notification", NotificationManager.IMPORTANCE_HIGH);
 		notificationChannel.enableLights(false);
 		notificationChannel.setDescription("Notifications from Job Service");
 
@@ -147,6 +163,9 @@ public class NotificationJobService extends JobService {
 	@Override
 	public boolean onStopJob(JobParameters params) {
 		Log.d(MainActivity.TAG, "NotificationJobService: onStopJob");
+		if (thread != null) {
+			thread.interrupt();
+		}
 		return false;
 	}
 }
