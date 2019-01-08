@@ -15,11 +15,14 @@ import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.ImageClassifier;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
+import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.models.Image;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 
@@ -35,8 +38,6 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 	protected void onPreExecute() {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
-			activity.list.clear();
-			activity.clusters.clear();
 			Log.d(MainActivity.TAG, "ClassifyAndCluster: Starting image classification asynchronously..");
 
 			activity.progressBar.setProgress(0);
@@ -80,50 +81,86 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 	protected Void doInBackground(Object... objects) {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
-			try {
+			ImageDatabase db = null;
+			try (ImageClassifier classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
+			                                                      "labels.txt", 224)) {
 				Uri uri = (Uri) objects[0];
 				DocumentFile[] docs = DocumentFile.fromTreeUri(activity, uri).listFiles();
-				int imagesNum = docs.length;
-				activity.progressBar.setMax(imagesNum);
-				Log.d(MainActivity.TAG, "ClassifyAndCluster: Found " + imagesNum + " images on DCIM directory");
+				activity.progressBar.setMax(docs.length);
+				Log.d(MainActivity.TAG, "ClassifyAndCluster: Found " + docs.length + " images on " + uri.getPath());
 
-				ImageClassifier classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
-				                                                 "labels.txt", 224);
+				db = ImageDatabase.getAppDatabase(activity);
+
+				// Fetching all the images from the given directory
+				List<Uri> localImages = new ArrayList<>();
 				for (DocumentFile doc : docs) {
 					String type = doc.getType();
 					if (!isCancelled() && type != null && type.equals("image/jpeg")) {
-						Image image = new Image(doc, activity, classifier);
-						if (image.getDateTaken() != null) {
-							activity.list.add(image);
-						} else {
-							Log.w(MainActivity.TAG, "ClassifyAndCluster: Skipping image: " + doc.getName());
-						}
-					} else {
-						Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping doc: " + doc.getName());
+						localImages.add(doc.getUri());
 					}
 					publishProgress();
 				}
-				Collections.reverse(activity.list);
-				classifier.close();
-				boolean resetDb = (boolean) objects[1];
-				if (resetDb) {
-					ImageDatabase db = ImageDatabase.getAppDatabase(activity);
-					db.clearAllTables();
-					if (!activity.list.isEmpty()) {
-						db.imageDao().insert(activity.list);
+
+				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.7, 2);
+				List<Image> toClusters;
+				boolean regularScan = (boolean) objects[1];
+				if (regularScan) {
+					// Regular Scan
+					// Removing from the database images that were deleted from local directory
+					db.imageDao().deleteNotInList(localImages);
+					List<Image> newImages = getNewImages(activity, db.imageDao(), classifier, localImages);
+					if (!newImages.isEmpty()) {
+						db.imageDao().insert(newImages);
+					} else {
+						Log.d(MainActivity.TAG, "NotificationJobService: No new images, finishing job..");
+						// Finishing AsyncTask, clusters remains the same
+						return null;
+					}
+					toClusters = db.imageDao().getAll();
+				} else {
+					// Custom scan
+					toClusters = new ArrayList<>();
+					for (DocumentFile doc : docs) {
+						String type = doc.getType();
+						if (!isCancelled() && type != null && type.equals("image/jpeg")) {
+							Image image = new Image(doc, activity, classifier);
+							if (image.getDateTaken() != null) {
+								toClusters.add(image);
+							} else {
+								Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping image: " + doc.getName());
+							}
+						} else {
+							Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping doc: " + doc.getName());
+						}
 					}
 				}
-				if (!isCancelled()) {
-					DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.7, 2);
-					activity.clusters = clusterer.cluster(activity.list);
-					Log.d(MainActivity.TAG, "ClassifyAndCluster: Clustered " + activity.clusters.size() + " clusters");
-				}
+				// Constructing image clusters
+				activity.clusters = clusterer.cluster(toClusters);
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "ClassifyAndCluster: Got an exception", e);
 				cancel(true);
+			} finally {
+				if (db != null) {
+					db.close();
+				}
 			}
 		}
 		return null;
+	}
+
+	private List<Image> getNewImages(Context context, ImageDao dao, ImageClassifier classifier, List<Uri> localImages) {
+		ArrayList<Image> newImages = new ArrayList<>();
+		// Filtering images that are already in the database
+		localImages.removeAll(dao.getAllUris());
+		for (Uri newImage : localImages) {
+			try {
+				Image image = new Image(DocumentFile.fromSingleUri(context, newImage), context, classifier);
+				newImages.add(image);
+			} catch (IOException e) {
+				Log.e(MainActivity.TAG, "getNewImages: ", e);
+			}
+		}
+		return newImages;
 	}
 
 	@Override
