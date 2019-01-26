@@ -72,7 +72,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 	public Object instantiateItem(@NonNull ViewGroup container, int position) {
 		View itemView = mLayoutInflater.inflate(R.layout.pager_item, container, false);
 		Image image = mDataSet.get(position);
-		imageView = itemView.findViewById(R.id.iv);
+		imageView = itemView.findViewById(R.id.image);
 		Glide.with(activity)
 		     .load(image.getUri())
 		     .listener(new RequestListener<Drawable>() {

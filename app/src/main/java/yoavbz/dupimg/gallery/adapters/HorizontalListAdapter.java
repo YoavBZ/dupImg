@@ -5,7 +5,6 @@ import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,7 +25,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 	private final ArrayList<Image> mDataset;
 	private final Activity mActivity;
-	private final OnImageClick mClickListener;
+	private final OnImageClickListener mClickListener;
 	private int mCurrentItem = 0;
 	private MultiSelector multiSelector;
 
@@ -38,7 +37,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 	 * @param imgClick      the img click
 	 * @param multiSelector the activity's multiSelector instance
 	 */
-	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClick imgClick, MultiSelector multiSelector) {
+	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClickListener imgClick, MultiSelector multiSelector) {
 		mActivity = activity;
 		mDataset = images;
 		mClickListener = imgClick;
@@ -81,50 +80,25 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 		// Set listeners
 		holder.image.setOnClickListener(view -> {
-			// Select this ViewHolder if in selection mode, otherwise call mClickListener
-			if (multiSelector.isSelectable()) {
-				if (!multiSelector.isSelected(position, 0)) {
-					// Select holder
-					multiSelector.setSelected(holder, true);
-					holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
-				} else {
-					// Deselect holder
-					multiSelector.setSelected(holder, false);
-					holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
-					// Exit selection mode if there're no more selections
-					if (multiSelector.getSelectedPositions().isEmpty()) {
-						multiSelector.setSelectable(false);
-						notifyDataSetChanged();
-					}
-				}
-				mActivity.invalidateOptionsMenu();
-			} else {
-				mClickListener.onClick(position);
-			}
-		});
-
-		holder.image.setOnLongClickListener(view -> {
-			Log.d("ViewHolder", "onLongClick!");
-			if (!multiSelector.isSelectable()) {
-				multiSelector.setSelectable(true);
+			if (!multiSelector.isSelected(position, 0)) {
+				// Select holder
 				multiSelector.setSelected(holder, true);
-				notifyDataSetChanged();
-				mActivity.invalidateOptionsMenu();
-				return true;
+				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
+			} else {
+				// Deselect holder
+				multiSelector.setSelected(holder, false);
+				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
 			}
-			return false;
+			mActivity.invalidateOptionsMenu();
+			// Always perform mClickListener click, to navigate to selected image
+			mClickListener.onImageClick(position);
 		});
 
 		// Set checkbox state according to selection
-		if (multiSelector.isSelectable()) {
-			holder.checkbox.setVisibility(View.VISIBLE);
-			if (multiSelector.isSelected(position, 0)) {
-				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
-			} else {
-				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
-			}
+		if (multiSelector.isSelected(position, 0)) {
+			holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
 		} else {
-			holder.checkbox.setVisibility(View.GONE);
+			holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
 		}
 	}
 
@@ -141,8 +115,8 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		notifyDataSetChanged();
 	}
 
-	public interface OnImageClick {
-		void onClick(int pos);
+	public interface OnImageClickListener {
+		void onImageClick(int pos);
 	}
 
 	public class ViewHolder extends SwappingHolder {
@@ -154,7 +128,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		ViewHolder(View layout) {
 			super(layout, multiSelector);
 			layout.setLongClickable(true);
-			image = layout.findViewById(R.id.iv);
+			image = layout.findViewById(R.id.image);
 			checkbox = layout.findViewById(R.id.checkbox);
 		}
 	}
