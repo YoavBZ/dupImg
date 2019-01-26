@@ -12,14 +12,11 @@ public abstract class ImageDao {
 	@Query("SELECT * FROM images ORDER BY dateTaken DESC")
 	public abstract List<Image> getAll();
 
-	@Query("SELECT COUNT(*) FROM images")
-	public abstract int getImageCount();
-
 	@Insert(onConflict = OnConflictStrategy.IGNORE)
 	public abstract void insert(List<Image> images);
 
 	@Delete
-	public abstract void delete(Image images);
+	public abstract void delete(Image image);
 
 	@Query("DELETE FROM images WHERE uri = :uri")
 	public abstract void delete(Uri uri);

@@ -1,8 +1,12 @@
 package yoavbz.dupimg;
 
 import android.Manifest;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -11,19 +15,26 @@ import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.v4.app.Fragment;
-import android.support.v4.view.ViewPager;
 import android.support.v7.widget.AppCompatImageView;
+import android.support.v7.widget.SwitchCompat;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.Toast;
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.github.paolorotolo.appintro.AppIntro;
 import com.github.paolorotolo.appintro.AppIntroBaseFragment;
 import com.github.paolorotolo.appintro.AppIntroFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
+import yoavbz.dupimg.background.NotificationJobService;
+
+import java.util.concurrent.TimeUnit;
+
+import static yoavbz.dupimg.MainActivity.JOB_ID;
 
 public class IntroActivity extends AppIntro {
 
@@ -33,12 +44,13 @@ public class IntroActivity extends AppIntro {
 		getSupportActionBar().hide();
 		setResult(RESULT_CANCELED);
 
+		// TODO: Increase description size
 		SliderPage welcomeSlide = new SliderPage();
 		welcomeSlide.setTitle("Welcome!");
 		welcomeSlide.setDescription(
-				"This App will help you clean your duplicated photos\nusing advanced machine learning algorithms");
+				"This App will help you clean your duplicated images");
 		welcomeSlide.setImageDrawable(R.drawable.clean_duplicates);
-		welcomeSlide.setBgColor(getColor(R.color.colorPrimary));
+		welcomeSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AppIntroFragment.newInstance(welcomeSlide));
 
 		SliderPage permissionSlide = new SliderPage();
@@ -46,7 +58,7 @@ public class IntroActivity extends AppIntro {
 		permissionSlide.setDescription(
 				"In order to scan and modify files, please click the 'Next' button and approve the asked permissions");
 		permissionSlide.setImageDrawable(R.drawable.permissions);
-		permissionSlide.setBgColor(getColor(R.color.colorPrimary));
+		permissionSlide.setBgColor(Color.TRANSPARENT);
 		PermissionFragment permissionsFragment = PermissionFragment.newInstance(permissionSlide);
 		addSlide(permissionsFragment);
 
@@ -54,16 +66,24 @@ public class IntroActivity extends AppIntro {
 		defaultDirSlide.setTitle("Camera Directory");
 		defaultDirSlide.setDescription("Please select your default camera directory:");
 		defaultDirSlide.setImageDrawable(R.drawable.ic_camera);
-		defaultDirSlide.setBgColor(getColor(R.color.colorPrimary));
+		defaultDirSlide.setBgColor(Color.TRANSPARENT);
 		DefaultDirFragment defaultDirFragment = DefaultDirFragment.newInstance(defaultDirSlide);
 		addSlide(defaultDirFragment);
 
-		// TODO: Return the background monitor slide
+		SliderPage backgroundMonitorSlide = new SliderPage();
+		backgroundMonitorSlide.setTitle("Background Monitor");
+		backgroundMonitorSlide.setDescription(
+				"Periodically scan your default directory for duplications");
+		backgroundMonitorSlide.setImageDrawable(R.drawable.monitor_notification);
+		backgroundMonitorSlide.setBgColor(Color.TRANSPARENT);
+		BackgroundMonitorFragment backgroundMonitorFragment = BackgroundMonitorFragment.newInstance(
+				backgroundMonitorSlide);
+		addSlide(backgroundMonitorFragment);
 
 		SliderPage doneSlide = new SliderPage();
 		doneSlide.setTitle("Done!");
 		doneSlide.setDescription("We are good to go :)");
-		doneSlide.setBgColor(getColor(R.color.colorPrimary));
+		doneSlide.setBgColor(Color.TRANSPARENT);
 		AppIntroFragment doneFragment = AppIntroFragment.newInstance(doneSlide);
 		addSlide(doneFragment);
 
@@ -116,14 +136,11 @@ public class IntroActivity extends AppIntro {
 	}
 
 	@NonNull
-	private ViewPager.OnPageChangeListener getOnPageChangeListener(AppIntroFragment doneFragment) {
-		return new ViewPager.OnPageChangeListener() {
-			@Override
-			public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-			}
-
+	private PagerOnPageChangeListener getOnPageChangeListener(AppIntroFragment doneFragment) {
+		return new PagerOnPageChangeListener() {
 			@Override
 			public void onPageSelected(int position) {
+				super.onPageSelected(position);
 				switch (position) {
 					case 2:
 						setButtonState(nextButton, false);
@@ -135,10 +152,6 @@ public class IntroActivity extends AppIntro {
 						animationView.playAnimation();
 					}
 				}
-			}
-
-			@Override
-			public void onPageScrollStateChanged(int state) {
 			}
 		};
 	}
@@ -164,19 +177,18 @@ public class IntroActivity extends AppIntro {
 			animationView.setScale(0.15f);
 			animationView.setElevation(5f);
 			constraintLayout.addView(animationView);
-
 			constraintLayout.addView(imageView);
-			view.addView(constraintLayout, 1);
+			view.addView(constraintLayout, 2);
 
-			ConstraintSet set = new ConstraintSet();
-			set.clone(constraintLayout);
-			set.connect(animationView.getId(), ConstraintSet.LEFT, imageView.getId(), ConstraintSet.LEFT);
-			set.connect(animationView.getId(), ConstraintSet.RIGHT, imageView.getId(), ConstraintSet.RIGHT);
-			set.connect(animationView.getId(), ConstraintSet.TOP, imageView.getId(), ConstraintSet.TOP);
-			set.connect(animationView.getId(), ConstraintSet.BOTTOM, imageView.getId(), ConstraintSet.BOTTOM);
-				set.setHorizontalBias(animationView.getId(), 0.878f);
-			set.setVerticalBias(animationView.getId(), 0.628f);
-			set.applyTo(constraintLayout);
+			ConstraintSet constrains = new ConstraintSet();
+			constrains.clone(constraintLayout);
+			constrains.connect(animationView.getId(), ConstraintSet.LEFT, imageView.getId(), ConstraintSet.LEFT);
+			constrains.connect(animationView.getId(), ConstraintSet.RIGHT, imageView.getId(), ConstraintSet.RIGHT);
+			constrains.connect(animationView.getId(), ConstraintSet.TOP, imageView.getId(), ConstraintSet.TOP);
+			constrains.connect(animationView.getId(), ConstraintSet.BOTTOM, imageView.getId(), ConstraintSet.BOTTOM);
+			constrains.setHorizontalBias(animationView.getId(), 0.878f);
+			constrains.setVerticalBias(animationView.getId(), 0.628f);
+			constrains.applyTo(constraintLayout);
 
 			animationView.playAnimation();
 			return view;
@@ -228,6 +240,64 @@ public class IntroActivity extends AppIntro {
 
 		public static DefaultDirFragment newInstance(SliderPage sliderPage) {
 			DefaultDirFragment slide = new DefaultDirFragment();
+			Bundle args = new Bundle();
+			args.putString(ARG_TITLE, sliderPage.getTitleString());
+			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
+			args.putString(ARG_DESC, sliderPage.getDescriptionString());
+			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
+			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
+			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
+			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
+			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
+			slide.setArguments(args);
+
+			return slide;
+		}
+
+		@Override
+		protected int getLayoutId() {
+			return com.github.paolorotolo.appintro.R.layout.fragment_intro;
+		}
+
+	}
+
+	public static class BackgroundMonitorFragment extends AppIntroBaseFragment {
+
+		@Nullable
+		@Override
+		public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+		                         @Nullable Bundle savedInstanceState) {
+			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
+			SwitchCompat monitorSwitch = (SwitchCompat) getLayoutInflater().inflate(R.layout.background_switch, null);
+			JobScheduler scheduler = (JobScheduler) getContext().getSystemService(JOB_SCHEDULER_SERVICE);
+			monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+				if (isChecked) {
+					// Turn on background jobService
+					JobInfo job = new JobInfo.Builder(JOB_ID, new ComponentName(getContext().getPackageName(),
+					                                                            NotificationJobService.class.getName()))
+							.setMinimumLatency(TimeUnit.MINUTES.toMillis(15))
+							.setPersisted(true)
+							.build();
+					scheduler.schedule(job);
+					PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
+					                 .putBoolean("showIntro", false)
+					                 .apply();
+					getActivity().setResult(RESULT_OK);
+				} else {
+					// Turn off background jobService
+					scheduler.cancel(JOB_ID);
+				}
+			});
+			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(700, 190);
+			lp.gravity = Gravity.CENTER;
+			monitorSwitch.setLayoutParams(lp);
+			monitorSwitch.setTextColor(Color.WHITE);
+			view.addView(monitorSwitch);
+			return view;
+		}
+
+		public static BackgroundMonitorFragment newInstance(SliderPage sliderPage) {
+			BackgroundMonitorFragment slide = new BackgroundMonitorFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
 			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
