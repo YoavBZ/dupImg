@@ -75,13 +75,19 @@ public class MediaGalleryView extends RecyclerView {
 	}
 
 	/**
+	 * @return The image clusters
+	 */
+	public List<Cluster<Image>> getImageClusters(){
+		return imageClusters;
+	}
+	/**
 	 * Sets images.
 	 *
-	 * @param clusters the item list
+	 * @param clusters The image clusters
 	 */
 	public void setImageClusters(List<Cluster<Image>> clusters) {
-		this.imageClusters.clear();
-		this.imageClusters.addAll(clusters);
+		imageClusters.clear();
+		imageClusters.addAll(clusters);
 	}
 
 	/**

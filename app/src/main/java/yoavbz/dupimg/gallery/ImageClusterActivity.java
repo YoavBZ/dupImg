@@ -1,7 +1,6 @@
 package yoavbz.dupimg.gallery;
 
 import android.content.Intent;
-import android.media.MediaScannerConnection;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
@@ -18,8 +17,6 @@ import android.view.View;
 import android.widget.Toast;
 import com.bignerdranch.android.multiselector.MultiSelector;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.database.ImageDao;
-import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.adapters.CustomViewPager;
 import yoavbz.dupimg.gallery.adapters.HorizontalListAdapter;
 import yoavbz.dupimg.gallery.adapters.ViewPagerAdapter;
@@ -31,11 +28,10 @@ import java.util.ArrayList;
  * The type Media gallery activity.
  */
 public class ImageClusterActivity extends AppCompatActivity
-		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClick {
+		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClickListener {
 
 	protected Toolbar mToolbar;
 	protected ArrayList<Image> dataSet;
-	protected String title;
 	private CustomViewPager mViewPager;
 	private RecyclerView imagesHorizontalList;
 	private HorizontalListAdapter hAdapter;
@@ -44,8 +40,7 @@ public class ImageClusterActivity extends AppCompatActivity
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(getResourceLayoutId());
-		multiSelector = new MultiSelector();
+		setContentView(R.layout.activity_gallery);
 		initValues();
 		initViews();
 		initAdapters();
@@ -78,7 +73,8 @@ public class ImageClusterActivity extends AppCompatActivity
 
 	public void initAdapters() {
 		mViewPager.setAdapter(new ViewPagerAdapter(this, dataSet, mToolbar, imagesHorizontalList));
-		// Adapter for the horizontal RecyclerView of the dataset
+		multiSelector = new MultiSelector();
+		multiSelector.setSelectable(true);
 		hAdapter = new HorizontalListAdapter(this, dataSet, this, multiSelector);
 		imagesHorizontalList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 		imagesHorizontalList.setAdapter(hAdapter);
@@ -86,20 +82,17 @@ public class ImageClusterActivity extends AppCompatActivity
 		mViewPager.addOnPageChangeListener(this);
 	}
 
-	public int getResourceLayoutId() {
-		return R.layout.activity_gallery;
-	}
-
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.image_toolbar_menu, menu);
-		menu.findItem(R.id.action_select).setVisible(multiSelector.isSelectable() &&
-				                                             !multiSelector.getSelectedPositions().isEmpty());
+		boolean showItem = !multiSelector.getSelectedPositions().isEmpty() &&
+				multiSelector.getSelectedPositions().size() != dataSet.size();
+		menu.findItem(R.id.action_select).setVisible(showItem);
 		return true;
 	}
 
 	/**
-	 * Handles selecting images to keep, by popping a verification dialog
+	 * Handles the selection of images to keep, by popping a verification dialog
 	 *
 	 * @param item The selected menu item
 	 * @return super method return value
@@ -107,13 +100,10 @@ public class ImageClusterActivity extends AppCompatActivity
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		if (item.getItemId() == R.id.action_select) {
-			ArrayList<String> selected = new ArrayList<>();
-			for (int i : multiSelector.getSelectedPositions()) {
-				selected.add(dataSet.get(i).toString());
-			}
-			Spanned message = Html.fromHtml("Your choice:<br><b>" + String.join(",<br>", selected) +
-					                                "</b><br>Are you sure you want to delete the rest of the images?",
-			                                0);
+			Spanned message =
+					Html.fromHtml("You chose to keep <b>" + multiSelector.getSelectedPositions().size() +
+							              "</b> out of <b>" + dataSet.size() +
+							              "</b> images.<br>Are you sure you want to delete the unselected images?", 0);
 			new AlertDialog.Builder(this)
 					.setTitle("Delete Duplicates?")
 					.setMessage(message)
@@ -148,22 +138,6 @@ public class ImageClusterActivity extends AppCompatActivity
 		return true;
 	}
 
-	/**
-	 * Exits selection mode (and notifies adapter) or returning to main activity
-	 */
-	@Override
-	public void onBackPressed() {
-		if (multiSelector.isSelectable()) {
-			// Exit selection mod
-			multiSelector.clearSelections();
-			multiSelector.setSelectable(false);
-			// Remove checkboxes
-			hAdapter.notifyDataSetChanged();
-		} else {
-			super.onBackPressed();
-		}
-	}
-
 	@Override
 	public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
 	}
@@ -180,7 +154,7 @@ public class ImageClusterActivity extends AppCompatActivity
 	}
 
 	@Override
-	public void onClick(int pos) {
+	public void onImageClick(int pos) {
 		mViewPager.setCurrentItem(pos, true);
 	}
 
