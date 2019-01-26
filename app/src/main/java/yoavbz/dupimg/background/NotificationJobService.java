@@ -7,9 +7,10 @@ import android.app.job.JobParameters;
 import android.app.job.JobService;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.provider.DocumentFile;
@@ -25,7 +26,6 @@ import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.models.Image;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,7 +48,7 @@ public class NotificationJobService extends JobService {
 				                                 "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
 				                                 224);
 
-				db = ImageDatabase.getAppDatabase(this).imageDao();
+				db = ImageDatabase.getAppDatabase(NotificationJobService.this).imageDao();
 				// Fetching all the images from the camera directory
 				List<Uri> localImages = getLocalImages();
 				// Removing from the database images that were deleted from local directory
@@ -64,7 +64,8 @@ public class NotificationJobService extends JobService {
 				}
 				db.insert(newImages);
 
-				NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "dupImg")
+				NotificationCompat.Builder builder = new NotificationCompat.Builder(NotificationJobService.this,
+				                                                                    "dupImg")
 						.setContentTitle("dupImg")
 						.setSmallIcon(R.drawable.ic_menu_gallery)
 						.setShowWhen(true)
@@ -87,7 +88,7 @@ public class NotificationJobService extends JobService {
 				classifier.close();
 				if (updateUi) {
 					Intent intent = new Intent(MainActivity.ACTION_UPDATE_UI);
-					LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+					LocalBroadcastManager.getInstance(NotificationJobService.this).sendBroadcast(intent);
 				}
 				jobFinished(params, false);
 			}
@@ -127,26 +128,23 @@ public class NotificationJobService extends JobService {
 		return images;
 	}
 
-	private void processClusters(List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
+	private void processClusters(@NonNull List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
 		for (int i = 0; i < clusters.size(); i++) {
 			ArrayList<Image> images = (ArrayList<Image>) clusters.get(i).getPoints();
 			Intent intent = new Intent(this, ImageClusterActivity.class);
 			intent.putParcelableArrayListExtra("IMAGES", images);
 			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
 			                                                        PendingIntent.FLAG_UPDATE_CURRENT);
-			try (InputStream inputStream = getContentResolver().openInputStream(images.get(0).getUri())) {
-				Bitmap previewImg = BitmapFactory.decodeStream(inputStream);
-//			Bitmap previewImg = images.get(0).getBitmap(inputStream);
-				builder.setContentIntent(pendingIntent)
-				       .setContentTitle("Found " + images.size() + " new duplicates!")
-				       .setLargeIcon(previewImg)
-				       .setStyle(new NotificationCompat.BigPictureStyle()
-						                 .bigPicture(previewImg)
-						                 .bigLargeIcon(null));
-				mNotifyManager.notify(i, builder.build());
-			} catch (IOException e) {
-				Log.e(MainActivity.TAG, "processClusters: ", e);
-			}
+			Image previewImg = images.get(0);
+			Bitmap rotatedPreviewImg = Image.getOrientedBitmap(getContentResolver(), previewImg.getUri());
+			builder.setContentIntent(pendingIntent)
+			       .setContentTitle("Found " + images.size() + " new duplicates!")
+			       .setLargeIcon(rotatedPreviewImg)
+			       .setStyle(new NotificationCompat.BigPictureStyle()
+					                 .bigPicture(rotatedPreviewImg)
+					                 .bigLargeIcon(null));
+			int id = (int) SystemClock.uptimeMillis();
+			mNotifyManager.notify(id, builder.build());
 		}
 	}
 

@@ -2,9 +2,11 @@ package yoavbz.dupimg.models;
 
 import android.arch.persistence.room.Entity;
 import android.arch.persistence.room.PrimaryKey;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -44,7 +46,7 @@ public class Image implements Parcelable, Clusterable {
 	 *
 	 * @param file       The image {@link DocumentFile}
 	 * @param context    A context for getting {@link android.content.ContentResolver}
-	 * @param classifier A TensorFlow Lite classifier, for generating feature vector (point field)
+	 * @param classifier A TensorFlow Lite classifier, for generating feature vector (vector field)
 	 */
 	public Image(DocumentFile file, Context context, ImageClassifier classifier) throws IOException {
 		uri = file.getUri();
@@ -67,6 +69,39 @@ public class Image implements Parcelable, Clusterable {
 		inputStream.close();
 	}
 
+	public static Bitmap getOrientedBitmap(ContentResolver resolver, Uri uri) {
+		try {
+			int rotation;
+			InputStream in = resolver.openInputStream(uri);
+			ExifInterface exif = new ExifInterface(in);
+			switch (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)) {
+				case ExifInterface.ORIENTATION_ROTATE_90:
+					rotation = 90;
+					break;
+				case ExifInterface.ORIENTATION_ROTATE_180:
+					rotation = 180;
+					break;
+				case ExifInterface.ORIENTATION_ROTATE_270:
+					rotation = 270;
+					break;
+				default:
+					rotation = ExifInterface.ORIENTATION_UNDEFINED;
+			}
+			in.close();
+
+			in = resolver.openInputStream(uri);
+			Bitmap bitmap = BitmapFactory.decodeStream(in);
+			in.close();
+			Matrix rotationMatrix = new Matrix();
+			rotationMatrix.postRotate(rotation);
+			return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
+			                           rotationMatrix, false);
+		} catch (Exception e) {
+			Log.e(MainActivity.TAG, "Got an exception", e);
+		}
+		return null;
+	}
+
 	@NonNull
 	public Uri getUri() {
 		return uri;
@@ -86,6 +121,10 @@ public class Image implements Parcelable, Clusterable {
 
 	public void setPoint(double[] point) {
 		this.point = point;
+	}
+
+	public boolean isValid() {
+		return dateTaken != null;
 	}
 
 	@Override
