@@ -11,6 +11,7 @@ import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import android.view.View;
+import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.ImageClassifier;
 import yoavbz.dupimg.MainActivity;
@@ -24,7 +25,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ClassificationTask extends AsyncTask<Object, Void, Void> {
+public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>>> {
 
 	private static final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
@@ -54,8 +55,7 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 					.setSmallIcon(R.drawable.ic_menu_gallery)
 					.setContentTitle("Scanning images..")
 					.setPriority(NotificationCompat.PRIORITY_LOW)
-					.setOngoing(true)
-					.setProgress(100, 0, false);
+					.setOngoing(true);
 			notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 		}
 	}
@@ -73,23 +73,30 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 	/**
 	 * Iterating the given directory files, classifying them and clustering them into similarity clusters
 	 *
-	 * @param objects contains two objects: [0] - directory path to scan
-	 *                [1] - boolean value which determine whether to reset the database
+	 * @param uris Contains directory uri to scan in case of a custom scan, null otherwise
 	 * @return null
 	 */
 	@Override
-	protected Void doInBackground(Object... objects) {
+	protected List<Cluster<Image>> doInBackground(Uri... uris) {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			ImageDatabase db = null;
 			try (ImageClassifier classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
 			                                                      "labels.txt", 224)) {
-				Uri uri = (Uri) objects[0];
-				DocumentFile[] docs = DocumentFile.fromTreeUri(activity, uri).listFiles();
-				activity.progressBar.setMax(docs.length);
-				Log.d(MainActivity.TAG, "ClassifyAndCluster: Found " + docs.length + " images on " + uri.getPath());
-
 				db = ImageDatabase.getAppDatabase(activity);
+
+				Uri dirUri = uris[0];
+				if (dirUri == null) {
+					// In case no custom uri was delivered - use default value
+					String uriString = PreferenceManager.getDefaultSharedPreferences(activity)
+					                                    .getString("dirUri", null);
+					dirUri = Uri.parse(uriString);
+				}
+				DocumentFile[] docs = DocumentFile.fromTreeUri(activity, dirUri).listFiles();
+
+				activity.runOnUiThread(() -> activity.progressBar.setMax(docs.length));
+				mBuilder.setProgress(docs.length, 0, false);
+				Log.d(MainActivity.TAG, "ClassifyAndCluster: Found " + docs.length + " images on " + dirUri.getPath());
 
 				// Fetching all the images from the given directory
 				List<Uri> localImages = new ArrayList<>();
@@ -101,9 +108,15 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 					publishProgress();
 				}
 
+				activity.runOnUiThread(() -> {
+					activity.progressBar.setIndeterminate(true);
+					mBuilder.setProgress(activity.progressBar.getMax(),
+					                     activity.progressBar.getProgress(), true);
+				});
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.7, 2);
 				List<Image> toClusters;
-				boolean regularScan = (boolean) objects[1];
+
+				boolean regularScan = (uris[0] == null);
 				if (regularScan) {
 					// Regular Scan
 					// Removing from the database images that were deleted from local directory
@@ -112,40 +125,35 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 					if (!newImages.isEmpty()) {
 						db.imageDao().insert(newImages);
 					} else {
-						Log.d(MainActivity.TAG, "NotificationJobService: No new images, finishing job..");
-						// Finishing AsyncTask, clusters remains the same
-						return null;
+						Log.d(MainActivity.TAG, "NotificationJobService: No new images..");
 					}
 					toClusters = db.imageDao().getAll();
 				} else {
 					// Custom scan
 					toClusters = new ArrayList<>();
-					for (DocumentFile doc : docs) {
-						String type = doc.getType();
-						if (!isCancelled() && type != null && type.equals("image/jpeg")) {
+					for (Uri uri : localImages) {
+						if (!isCancelled()) {
+							DocumentFile doc = DocumentFile.fromSingleUri(activity, uri);
 							Image image = new Image(doc, activity, classifier);
-							if (image.getDateTaken() != null) {
+							if (image.isValid()) {
 								toClusters.add(image);
 							} else {
-								Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping image: " + doc.getName());
+								Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping file: " + doc.getName());
 							}
-						} else {
-							Log.d(MainActivity.TAG, "ClassifyAndCluster: Skipping doc: " + doc.getName());
 						}
 					}
 				}
-				// Constructing image clusters
-				activity.clusters = clusterer.cluster(toClusters);
+				return clusterer.cluster(toClusters);
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "ClassifyAndCluster: Got an exception", e);
 				cancel(true);
 			} finally {
 				if (db != null) {
-					db.close();
+//					db.close();
 				}
 			}
 		}
-		return null;
+		return new ArrayList<>();
 	}
 
 	private List<Image> getNewImages(Context context, ImageDao dao, ImageClassifier classifier, List<Uri> localImages) {
@@ -168,23 +176,23 @@ public class ClassificationTask extends AsyncTask<Object, Void, Void> {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.progressBar.incrementProgressBy(1);
-			mBuilder.setProgress(100, activity.progressBar.getProgress(), false);
-
+			mBuilder.setProgress(activity.progressBar.getMax(), activity.progressBar.getProgress(), false);
 			activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 		}
 	}
 
 	@Override
-	protected void onPostExecute(Void result) {
+	protected void onPostExecute(List<Cluster<Image>> clusters) {
+		Log.d(MainActivity.TAG, "ClassificationTask - fetchAndCluster: Clustered " + clusters.size() + " clusters");
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.notificationManager.cancel(NOTIFICATION_ID);
 			activity.progressBar.setVisibility(View.GONE);
 			activity.galleryView.setVisibility(View.VISIBLE);
-			activity.galleryView.setImageClusters(activity.clusters);
+			activity.galleryView.setImageClusters(clusters);
 			activity.galleryView.notifyDataSetChanged();
 			activity.invalidateOptionsMenu();
-			if (activity.clusters.isEmpty()) {
+			if (clusters.isEmpty()) {
 				activity.textView.setText("No duplicates were found :)");
 			} else {
 				activity.textView.setVisibility(View.GONE);
