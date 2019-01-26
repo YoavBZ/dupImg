@@ -4,5 +4,5 @@
 	<string name="navigation_drawer_close">Close navigation drawer</string>
 	<string name="nav_header_title">dupImg</string>
 	<string name="nav_header_desc">Navigation header</string>
-	<string name="cluster_activity_title">Long click to select:</string>
+	<string name="cluster_activity_title">Select images you want to keep:</string>
 </resources>
