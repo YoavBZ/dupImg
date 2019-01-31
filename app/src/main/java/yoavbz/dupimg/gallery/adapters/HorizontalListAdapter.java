@@ -8,6 +8,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import com.bignerdranch.android.multiselector.MultiSelector;
 import com.bignerdranch.android.multiselector.SwappingHolder;
@@ -83,11 +84,11 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 			if (!multiSelector.isSelected(position, 0)) {
 				// Select holder
 				multiSelector.setSelected(holder, true);
-				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
+				holder.checkbox.setChecked(true);
 			} else {
 				// Deselect holder
 				multiSelector.setSelected(holder, false);
-				holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
+				holder.checkbox.setChecked(false);
 			}
 			mActivity.invalidateOptionsMenu();
 			// Always perform mClickListener click, to navigate to selected image
@@ -96,9 +97,9 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 		// Set checkbox state according to selection
 		if (multiSelector.isSelected(position, 0)) {
-			holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box));
+			holder.checkbox.setChecked(true);
 		} else {
-			holder.checkbox.setImageDrawable(mActivity.getDrawable(R.drawable.ic_check_box_outline_blank));
+			holder.checkbox.setChecked(false);
 		}
 	}
 
@@ -122,7 +123,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 	public class ViewHolder extends SwappingHolder {
 
 		public ImageView image;
-		public ImageView checkbox;
+		CheckBox checkbox;
 		String filename;
 
 		ViewHolder(View layout) {

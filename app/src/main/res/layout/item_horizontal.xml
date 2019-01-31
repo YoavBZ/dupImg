@@ -11,10 +11,11 @@
 			android:layout_height="70dp"
 			android:scaleType="centerCrop"/>
 
-	<ImageView
+	<CheckBox
 			android:id="@+id/checkbox"
 			android:layout_width="30dp"
 			android:layout_height="30dp"
-			android:layout_gravity="end"/>
+			android:layout_gravity="end"
+			android:clickable="false"/>
 
 </FrameLayout>
