@@ -14,13 +14,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
+import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.models.Image;
@@ -38,7 +38,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 	private boolean isShowing = true;
 	private Toolbar toolbar;
 	private RecyclerView imagesHorizontalList;
-	private ImageView imageView;
+	private PhotoView photoView;
 
 	/**
 	 * Instantiates a new View pager adapter.
@@ -72,7 +72,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 	public Object instantiateItem(@NonNull ViewGroup container, int position) {
 		View itemView = mLayoutInflater.inflate(R.layout.pager_item, container, false);
 		Image image = mDataSet.get(position);
-		imageView = itemView.findViewById(R.id.image);
+		photoView = itemView.findViewById(R.id.image);
 		Glide.with(activity)
 		     .load(image.getUri())
 		     .listener(new RequestListener<Drawable>() {
@@ -86,13 +86,13 @@ public class ViewPagerAdapter extends PagerAdapter {
 				     onTap();
 				     return false;
 			     }
-		     }).into(imageView);
+		     }).into(photoView);
 		container.addView(itemView);
 		return itemView;
 	}
 
 	private void onTap() {
-		PhotoViewAttacher mPhotoViewAttacher = new PhotoViewAttacher(imageView);
+		PhotoViewAttacher mPhotoViewAttacher = new PhotoViewAttacher(photoView);
 
 		mPhotoViewAttacher.setOnPhotoTapListener((view, x, y) -> {
 			Log.d("ViewPagerAdapter", "onTap");

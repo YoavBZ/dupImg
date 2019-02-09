@@ -1,6 +1,7 @@
 package yoavbz.dupimg.gallery;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
@@ -15,7 +16,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
-import com.bignerdranch.android.multiselector.MultiSelector;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.adapters.CustomViewPager;
 import yoavbz.dupimg.gallery.adapters.HorizontalListAdapter;
@@ -23,6 +23,7 @@ import yoavbz.dupimg.gallery.adapters.ViewPagerAdapter;
 import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 /**
  * The type Media gallery activity.
@@ -31,11 +32,11 @@ public class ImageClusterActivity extends AppCompatActivity
 		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClickListener {
 
 	protected Toolbar mToolbar;
-	protected ArrayList<Image> dataSet;
+	protected ArrayList<Image> images;
+	private ArrayList<Image> toDelete;
 	private CustomViewPager mViewPager;
 	private RecyclerView imagesHorizontalList;
 	private HorizontalListAdapter hAdapter;
-	private MultiSelector multiSelector;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -52,7 +53,7 @@ public class ImageClusterActivity extends AppCompatActivity
 			return;
 		}
 		Bundle bundle = intent.getExtras();
-		dataSet = bundle.getParcelableArrayList("IMAGES");
+		images = bundle.getParcelableArrayList("IMAGES");
 	}
 
 	private void initViews() {
@@ -68,14 +69,14 @@ public class ImageClusterActivity extends AppCompatActivity
 		getSupportActionBar().setHomeButtonEnabled(true);
 
 		mViewPager = findViewById(R.id.pager);
+//		mViewPager.setTransitionName(getIntent().getStringExtra("transition"));
 		imagesHorizontalList = findViewById(R.id.horizontal_list);
 	}
 
 	public void initAdapters() {
-		mViewPager.setAdapter(new ViewPagerAdapter(this, dataSet, mToolbar, imagesHorizontalList));
-		multiSelector = new MultiSelector();
-		multiSelector.setSelectable(true);
-		hAdapter = new HorizontalListAdapter(this, dataSet, this, multiSelector);
+		mViewPager.setAdapter(new ViewPagerAdapter(this, images, mToolbar, imagesHorizontalList));
+		toDelete = new ArrayList<>();
+		hAdapter = new HorizontalListAdapter(this, images, this, toDelete);
 		imagesHorizontalList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 		imagesHorizontalList.setAdapter(hAdapter);
 		hAdapter.notifyDataSetChanged();
@@ -85,9 +86,7 @@ public class ImageClusterActivity extends AppCompatActivity
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.image_toolbar_menu, menu);
-		boolean showItem = !multiSelector.getSelectedPositions().isEmpty() &&
-				multiSelector.getSelectedPositions().size() != dataSet.size();
-		menu.findItem(R.id.action_select).setVisible(showItem);
+		menu.findItem(R.id.action_delete).setVisible(!toDelete.isEmpty());
 		return true;
 	}
 
@@ -99,11 +98,11 @@ public class ImageClusterActivity extends AppCompatActivity
 	 */
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		if (item.getItemId() == R.id.action_select) {
+		if (item.getItemId() == R.id.action_delete) {
 			Spanned message =
-					Html.fromHtml("You chose to keep <b>" + multiSelector.getSelectedPositions().size() +
-							              "</b> out of <b>" + dataSet.size() +
-							              "</b> images.<br>Are you sure you want to delete the unselected images?", 0);
+					Html.fromHtml("You chose to delete <b>" + toDelete.size() +
+							              "</b> out of <b>" + images.size() +
+							              "</b> images.<br>Are you sure you want to delete the selected images?", 0);
 			new AlertDialog.Builder(this)
 					.setTitle("Delete Duplicates?")
 					.setMessage(message)
@@ -111,13 +110,15 @@ public class ImageClusterActivity extends AppCompatActivity
 						Toast.makeText(this, "Deleting duplicates..", Toast.LENGTH_LONG).show();
 						// Deleting unselected images
 						new Thread(() -> {
-							for (int i = 0; i < dataSet.size(); i++) {
-								if (!multiSelector.isSelected(i, 0)) {
-									Image image = dataSet.get(i);
-									image.delete(this);
-								}
+							for (Image image : toDelete) {
+								image.delete(this);
 							}
-							setResult(RESULT_OK);
+							Intent data = new Intent();
+							data.putParcelableArrayListExtra("deleted",
+							                                 (ArrayList<Uri>) toDelete.stream()
+							                                                          .map(Image::getUri)
+							                                                          .collect(Collectors.toList()));
+							setResult(RESULT_OK, data);
 							finish();
 						}).start();
 					})
@@ -154,8 +155,8 @@ public class ImageClusterActivity extends AppCompatActivity
 	}
 
 	@Override
-	public void onImageClick(int pos) {
-		mViewPager.setCurrentItem(pos, true);
+	public void onImageClick(int position) {
+		mViewPager.setCurrentItem(position, true);
 	}
 
 }

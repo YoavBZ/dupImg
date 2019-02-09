@@ -32,9 +32,11 @@
 			app:layout_constraintEnd_toEndOf="parent"
 			style="@style/Widget.AppCompat.ProgressBar.Horizontal"/>
 
-	<yoavbz.dupimg.gallery.MediaGalleryView
+	<yoavbz.dupimg.gallery.GalleryView
 			android:id="@+id/gallery"
 			android:layout_width="match_parent"
-			android:layout_height="match_parent"/>
+			android:layout_height="match_parent"
+			android:layoutAnimation="@anim/grid_animation"
+			app:place_holder="@drawable/gallery_placeholder"/>
 
 </android.support.constraint.ConstraintLayout>

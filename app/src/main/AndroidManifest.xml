@@ -30,7 +30,7 @@
 				android:noHistory="true"
 				android:autoRemoveFromRecents="true"/>
 
-		<activity android:name="yoavbz.dupimg.IntroActivity"/>
+		<activity android:name="yoavbz.dupimg.intro.IntroActivity"/>
 
 		<service android:name=".background.NotificationJobService"
 				android:permission="android.permission.BIND_JOB_SERVICE"/>

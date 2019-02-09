@@ -9,5 +9,6 @@
 		android:fitsSystemWindows="true"
 		android:layout_margin="10dp"
 		android:layout_gravity="center"
+		android:checked="true"
 		app:layout_constraintWidth_percent="0.8"
 		android:gravity="center"/>

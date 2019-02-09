@@ -1,6 +1,8 @@
 package yoavbz.dupimg.models;
 
+import android.annotation.SuppressLint;
 import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.Ignore;
 import android.arch.persistence.room.PrimaryKey;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -23,10 +25,10 @@ import yoavbz.dupimg.database.ImageDatabase;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+@SuppressWarnings("ConstantConditions")
 @Entity(tableName = "images")
 public class Image implements Parcelable, Clusterable {
 
@@ -35,6 +37,8 @@ public class Image implements Parcelable, Clusterable {
 	private Uri uri;
 	private Date dateTaken;
 	private double[] point;
+	@Ignore
+	private static DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 
 	public Image() {
 	}
@@ -50,23 +54,9 @@ public class Image implements Parcelable, Clusterable {
 	 */
 	public Image(DocumentFile file, Context context, ImageClassifier classifier) throws IOException {
 		uri = file.getUri();
-		DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
-		InputStream inputStream = context.getContentResolver().openInputStream(uri);
-		try {
-			// Extracting DATETIME_ORIGINAL
-			ExifInterface exif = new ExifInterface(inputStream);
-			String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
-			dateTaken = dateFormat.parse(date);
-		} catch (ParseException | NullPointerException e) {
-			Log.e(MainActivity.TAG, "Image - Got an exception while constructing image " + file.getName(), e);
-			// Fallback - Extracting creationTime attribute
-			dateTaken = new Date(file.lastModified());
-		} finally {
-			inputStream.close();
+		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
+			point = classifier.recognizeImage(getBitmap(inputStream));
 		}
-		inputStream = context.getContentResolver().openInputStream(uri);
-		point = classifier.recognizeImage(getBitmap(inputStream));
-		inputStream.close();
 	}
 
 	public static Bitmap getOrientedBitmap(ContentResolver resolver, Uri uri) {
@@ -115,6 +105,24 @@ public class Image implements Parcelable, Clusterable {
 		return dateTaken;
 	}
 
+	@SuppressLint("SimpleDateFormat")
+	public Date extractDate(Context context) {
+		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
+			// Extracting DATETIME_ORIGINAL
+			ExifInterface exif = new ExifInterface(inputStream);
+			String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
+			dateTaken = dateFormat.parse(date);
+		} catch (Exception e) {
+			DocumentFile file = DocumentFile.fromSingleUri(context, uri);
+			Log.e(MainActivity.TAG, "Image - Got an exception while extracting date from " + file.getName(), e);
+			// Fallback - Extracting creationTime attribute
+			dateTaken = new Date(file.lastModified());
+		}
+		// Update image in DB
+		new Thread(() -> ImageDatabase.getAppDatabase(context).imageDao().update(this)).start();
+		return dateTaken;
+	}
+
 	public void setDateTaken(Date dateTaken) {
 		this.dateTaken = dateTaken;
 	}
@@ -123,20 +131,17 @@ public class Image implements Parcelable, Clusterable {
 		this.point = point;
 	}
 
-	public boolean isValid() {
-		return dateTaken != null;
-	}
-
+	@NonNull
 	@Override
 	public String toString() {
-		return uri.toString().substring(uri.toString().lastIndexOf("%2F") + 3);
+		return uri.getLastPathSegment();
 	}
 
 	/**
 	 * @param inputStream The corresponding image's InputStream (from its {@link DocumentFile})
 	 * @return A Bitmap representation of the image
 	 */
-	public Bitmap getBitmap(InputStream inputStream) {
+	private Bitmap getBitmap(InputStream inputStream) {
 		Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
 		return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
 	}
@@ -162,7 +167,8 @@ public class Image implements Parcelable, Clusterable {
 
 	private Image(Parcel in) {
 		uri = Uri.parse(in.readString());
-		dateTaken = new Date(in.readLong());
+		long longDate = in.readLong();
+		dateTaken = (longDate != 0) ? new Date(longDate) : null;
 		point = in.createDoubleArray();
 	}
 
@@ -179,7 +185,7 @@ public class Image implements Parcelable, Clusterable {
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
 		dest.writeString(uri.toString());
-		dest.writeLong(dateTaken.getTime());
+		dest.writeLong((dateTaken != null) ? dateTaken.getTime() : 0);
 		dest.writeDoubleArray(point);
 	}
 

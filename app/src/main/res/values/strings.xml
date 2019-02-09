@@ -2,7 +2,7 @@
 	<string name="app_name">dupImg</string>
 	<string name="navigation_drawer_open">Open navigation drawer</string>
 	<string name="navigation_drawer_close">Close navigation drawer</string>
-	<string name="nav_header_title">dupImg</string>
-	<string name="nav_header_desc">Navigation header</string>
-	<string name="cluster_activity_title">Select images you want to keep:</string>
+	<string name="navigation_header_desc">Navigation header</string>
+	<string name="cluster_activity_title">Select images to delete:</string>
+	<string name="transition">transition</string>
 </resources>

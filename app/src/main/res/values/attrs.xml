@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-	<declare-styleable name="MediaGalleryView">
+	<declare-styleable name="GalleryView">
 		<attr name="span_count" format="integer" />
 		<attr name="place_holder" format="reference" />
 		<attr name="gallery_orientation" format="enum">
