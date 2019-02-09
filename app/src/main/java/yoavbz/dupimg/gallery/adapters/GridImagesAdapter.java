@@ -14,7 +14,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.gallery.MediaGalleryView;
+import yoavbz.dupimg.gallery.GalleryView;
 import yoavbz.dupimg.models.Image;
 
 import java.text.SimpleDateFormat;
@@ -22,18 +22,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.ViewHolder> {
-	private ArrayList<Cluster<Image>> mDataset;
-	private Context mContext;
+	private ArrayList<Cluster<Image>> clusters;
+	private Context context;
 	private Drawable imgPlaceHolderResId;
-	private MediaGalleryView.OnImageClicked mClickListener;
-	private int mHeight;
-	private int mWidth;
+	private GalleryView.OnClusterClickListener mClickListener;
+	private int height;
+	private int width;
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
 	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters, Drawable imgPlaceHolderResId) {
 		super();
-		this.mDataset = imageClusters;
-		this.mContext = activity;
+		this.clusters = imageClusters;
+		this.context = activity;
 		this.imgPlaceHolderResId = imgPlaceHolderResId;
 	}
 
@@ -46,60 +46,59 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 
 	@Override
 	public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
-		holder.itemView.setOnClickListener(view -> {
-			if (mClickListener != null) {
-				mClickListener.onImageClicked(holder.getAdapterPosition());
-			}
-		});
-		ViewGroup.LayoutParams params = holder.clusterThumbnail.getLayoutParams();
-		if (mHeight != -1 && mHeight != MediaGalleryView.DEFAULT_SIZE) {
-			params.height = mHeight;
-		}
-		if (mWidth != -1 && mWidth != MediaGalleryView.DEFAULT_SIZE) {
-			params.width = mWidth;
-		}
-		holder.clusterThumbnail.setLayoutParams(params);
-		List<Image> images = mDataset.get(holder.getAdapterPosition()).getPoints();
-		Image firstImage = images.get(0);
-		Glide.with(mContext)
-		     .load(firstImage.getUri())
+		holder.updateThumbnailSize();
+		Glide.with(context)
+		     .load(holder.firstImage.getUri())
 		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
 		     .into(holder.clusterThumbnail);
-		// Setting cluster size
-		holder.clusterSize.setText(String.valueOf(images.size()));
-		// Setting cluster date
-		String timestamp = dateFormat.format(firstImage.getDateTaken());
-		holder.timestamp.setText(timestamp);
-	}
-
-	public void setImgPlaceHolder(Drawable imgPlaceHolderResId) {
-		this.imgPlaceHolderResId = imgPlaceHolderResId;
 	}
 
 	@Override
 	public int getItemCount() {
-		return mDataset.size();
+		return clusters.size();
 	}
 
-	public void setOnImageClickListener(MediaGalleryView.OnImageClicked onImageClickListener) {
+	public void setOnImageClickListener(GalleryView.OnClusterClickListener onImageClickListener) {
 		this.mClickListener = onImageClickListener;
 	}
 
 	public void setImageSize(int width, int height) {
-		this.mWidth = width;
-		this.mHeight = height;
+		this.width = width;
+		this.height = height;
 	}
 
 	class ViewHolder extends RecyclerView.ViewHolder {
 		ImageView clusterThumbnail;
 		TextView clusterSize;
-		TextView timestamp;
+		TextView clusterDate;
+		Image firstImage;
 
 		ViewHolder(View itemView) {
 			super(itemView);
+			// Finding views
 			clusterThumbnail = itemView.findViewById(R.id.cluster_thumbnail);
 			clusterSize = itemView.findViewById(R.id.cluster_size);
-			timestamp = itemView.findViewById(R.id.timestamp);
+			clusterDate = itemView.findViewById(R.id.timestamp);
+			// Setting item OnClickListener
+			itemView.setOnClickListener(view -> {
+				if (mClickListener != null) {
+					List<Image> cluster = clusters.get(getAdapterPosition()).getPoints();
+					mClickListener.onClusterClick(cluster, clusterThumbnail);
+				}
+			});
+			List<Image> images = clusters.get(getAdapterPosition()).getPoints();
+			firstImage = images.get(0);
+			// Setting cluster size
+			clusterSize.setText(String.valueOf(images.size()));
+			// Setting cluster date
+			String date = dateFormat.format(firstImage.extractDate(context));
+			clusterDate.setText(date);
+		}
+
+		private void updateThumbnailSize() {
+			ViewGroup.LayoutParams params = clusterThumbnail.getLayoutParams();
+			params.height = height;
+			params.width = width;
 		}
 	}
 }
