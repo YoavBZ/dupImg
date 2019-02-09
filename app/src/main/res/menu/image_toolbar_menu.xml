@@ -2,9 +2,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
 		xmlns:app="http://schemas.android.com/apk/res-auto">
 
-	<item android:id="@+id/action_select"
+	<item android:id="@+id/action_delete"
 			android:title="Select"
-			android:icon="@drawable/ic_check_black"
+			android:icon="@drawable/ic_delete"
 			android:orderInCategory="1"
 			android:visible="false"
 			app:showAsAction="always"/>
