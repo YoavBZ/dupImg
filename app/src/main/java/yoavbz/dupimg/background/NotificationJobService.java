@@ -32,7 +32,6 @@ import java.util.List;
 public class NotificationJobService extends JobService {
 
 	private NotificationManager mNotifyManager;
-	private ImageClassifier classifier;
 	private ImageDao db;
 	private Thread thread;
 
@@ -43,21 +42,20 @@ public class NotificationJobService extends JobService {
 		thread = new Thread(() -> {
 			createNotificationChannel();
 			boolean updateUi = false;
-			try {
-				classifier = new ImageClassifier(NotificationJobService.this,
-				                                 "mobilenet_v2_1.0_224_quant.tflite", "labels.txt",
-				                                 224);
+			try (ImageClassifier classifier = new ImageClassifier(NotificationJobService.this,
+			                                                      "mobilenet_v2_1.0_224_quant.tflite",
+			                                                      "labels.txt", 224)) {
 
 				db = ImageDatabase.getAppDatabase(NotificationJobService.this).imageDao();
 				// Fetching all the images from the camera directory
-				List<Uri> localImages = getLocalImages();
+				List<DocumentFile> localImages = getLocalImages();
 				// Removing from the database images that were deleted from local directory
 				boolean deletedImages = db.deleteNotInList(localImages);
 				if (deletedImages) {
 					updateUi = true;
 				}
 				// Filtering new local images, which aren't in the database
-				List<Image> newImages = getNewImages(localImages);
+				List<Image> newImages = getNewImages(localImages, classifier);
 				if (newImages.isEmpty()) {
 					Log.d(MainActivity.TAG, "NotificationJobService: No new images, finishing job..");
 					return;
@@ -67,7 +65,7 @@ public class NotificationJobService extends JobService {
 				NotificationCompat.Builder builder = new NotificationCompat.Builder(NotificationJobService.this,
 				                                                                    "dupImg")
 						.setContentTitle("dupImg")
-						.setSmallIcon(R.drawable.ic_menu_gallery)
+						.setSmallIcon(R.drawable.ic_gallery)
 						.setShowWhen(true)
 						.setContentText("Click to select which images to keep")
 						.setAutoCancel(true)
@@ -85,7 +83,6 @@ public class NotificationJobService extends JobService {
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "NotificationJobService: Got an exception", e);
 			} finally {
-				classifier.close();
 				if (updateUi) {
 					Intent intent = new Intent(MainActivity.ACTION_UPDATE_UI);
 					LocalBroadcastManager.getInstance(NotificationJobService.this).sendBroadcast(intent);
@@ -97,32 +94,31 @@ public class NotificationJobService extends JobService {
 		return true;
 	}
 
-	private List<Image> getNewImages(List<Uri> localImages) {
+	private List<Image> getNewImages(List<DocumentFile> localImages, ImageClassifier classifier) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
-		localImages.removeAll(db.getAllUris());
-		for (Uri newImage : localImages) {
-			Image image;
+		localImages.removeIf(file -> db.getAllUris().contains(file.getUri()));
+		for (DocumentFile newImage : localImages) {
 			try {
-				image = new Image(DocumentFile.fromSingleUri(this, newImage), this, classifier);
+				Image image = new Image(newImage, this, classifier);
 				newImages.add(image);
-			} catch (IOException e) {
+			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "getNewImages: ", e);
 			}
 		}
 		return newImages;
 	}
 
-	private List<Uri> getLocalImages() {
-		List<Uri> images = new ArrayList<>();
+	private List<DocumentFile> getLocalImages() {
+		List<DocumentFile> images = new ArrayList<>();
 		String uriString = PreferenceManager.getDefaultSharedPreferences(this)
 		                                    .getString("dirUri", null);
 		Uri uri = Uri.parse(uriString);
-		DocumentFile[] docs = DocumentFile.fromTreeUri(NotificationJobService.this, uri).listFiles();
-		for (DocumentFile doc : docs) {
-			String type = doc.getType();
+		DocumentFile[] files = DocumentFile.fromTreeUri(NotificationJobService.this, uri).listFiles();
+		for (DocumentFile file : files) {
+			String type = file.getType();
 			if (type != null && type.equals("image/jpeg")) {
-				images.add(doc.getUri());
+				images.add(file);
 			}
 		}
 		return images;
