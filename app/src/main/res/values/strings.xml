@@ -5,4 +5,6 @@
 	<string name="navigation_header_desc">Navigation header</string>
 	<string name="cluster_activity_title">Select images to delete:</string>
 	<string name="transition">transition</string>
+	<string name="crash_title">Crash Report</string>
+	<string name="crash_text">Sorry, the application crashed. Please send a report to the developer.</string>
 </resources>
