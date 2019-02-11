@@ -1,25 +1,18 @@
 package yoavbz.dupimg.gallery.adapters;
 
 import android.app.Activity;
-import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.DataSource;
-import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.request.RequestListener;
-import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
 import yoavbz.dupimg.R;
@@ -33,12 +26,11 @@ import java.util.ArrayList;
 public class ViewPagerAdapter extends PagerAdapter {
 
 	private Activity activity;
-	private LayoutInflater mLayoutInflater;
 	private ArrayList<Image> mDataSet;
-	private boolean isShowing = true;
+	private boolean hideHorizontalList = true;
 	private Toolbar toolbar;
 	private RecyclerView imagesHorizontalList;
-	private PhotoView photoView;
+	private String transition;
 
 	/**
 	 * Instantiates a new View pager adapter.
@@ -47,14 +39,15 @@ public class ViewPagerAdapter extends PagerAdapter {
 	 * @param dataSet              the images
 	 * @param toolbar              the toolbar
 	 * @param imagesHorizontalList the images horizontal list
+	 * @param transition           the transition name
 	 */
 	public ViewPagerAdapter(Activity activity, ArrayList<Image> dataSet, Toolbar toolbar, RecyclerView
-			imagesHorizontalList) {
+			imagesHorizontalList, String transition) {
 		this.activity = activity;
-		mLayoutInflater = (LayoutInflater) activity.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 		this.mDataSet = dataSet;
 		this.toolbar = toolbar;
 		this.imagesHorizontalList = imagesHorizontalList;
+		this.transition = transition;
 	}
 
 	@Override
@@ -70,34 +63,31 @@ public class ViewPagerAdapter extends PagerAdapter {
 	@NonNull
 	@Override
 	public Object instantiateItem(@NonNull ViewGroup container, int position) {
-		View itemView = mLayoutInflater.inflate(R.layout.pager_item, container, false);
+		View itemView = activity.getLayoutInflater().inflate(R.layout.pager_item, container, false);
 		Image image = mDataSet.get(position);
-		photoView = itemView.findViewById(R.id.image);
+		PhotoView photoView = itemView.findViewById(R.id.image);
 		Glide.with(activity)
 		     .load(image.getUri())
-		     .listener(new RequestListener<Drawable>() {
-			     @Override
-			     public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-				     return false;
-			     }
-
-			     @Override
-			     public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-				     onTap();
-				     return false;
-			     }
-		     }).into(photoView);
-		container.addView(itemView);
-		return itemView;
-	}
-
-	private void onTap() {
-		PhotoViewAttacher mPhotoViewAttacher = new PhotoViewAttacher(photoView);
-
-		mPhotoViewAttacher.setOnPhotoTapListener((view, x, y) -> {
+		     .into(photoView);
+		if (position == 0) {
+			photoView.setTransitionName(transition);
+			photoView.getViewTreeObserver().addOnPreDrawListener(
+					new ViewTreeObserver.OnPreDrawListener() {
+						@Override
+						public boolean onPreDraw() {
+							photoView.getViewTreeObserver().removeOnPreDrawListener(this);
+							activity.startPostponedEnterTransition();
+							photoView.setTransitionName(null);
+							return true;
+						}
+					});
+		}
+		// Setting OnPhotoTapListener to show/hide the imagesHorizontalList
+		PhotoViewAttacher photoViewAttacher = new PhotoViewAttacher(photoView);
+		photoViewAttacher.setOnPhotoTapListener((view, x, y) -> {
 			Log.d("ViewPagerAdapter", "onTap");
-			if (isShowing) {
-				isShowing = false;
+			if (hideHorizontalList) {
+				hideHorizontalList = false;
 				toolbar.animate()
 				       .translationY(-toolbar.getBottom())
 				       .setInterpolator(new AccelerateInterpolator())
@@ -107,11 +97,14 @@ public class ViewPagerAdapter extends PagerAdapter {
 				                    .setInterpolator(new AccelerateInterpolator())
 				                    .start();
 			} else {
-				isShowing = true;
+				hideHorizontalList = true;
 				toolbar.animate().translationY(0).setInterpolator(new DecelerateInterpolator()).start();
 				imagesHorizontalList.animate().translationY(0).setInterpolator(new DecelerateInterpolator()).start();
 			}
 		});
+
+		container.addView(itemView);
+		return itemView;
 	}
 
 	@Override

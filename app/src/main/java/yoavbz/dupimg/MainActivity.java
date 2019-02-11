@@ -1,5 +1,6 @@
 package yoavbz.dupimg;
 
+import android.app.ActivityOptions;
 import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
@@ -194,12 +195,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		// Starting ImageClusterActivity with correct parameters
 		Intent intent = new Intent(this, ImageClusterActivity.class);
 		intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) cluster);
-//		intent.putExtra("transition", String.valueOf(thumbnail.getId()));
-//		thumbnail.setTransitionName(String.valueOf(thumbnail.getId()));
-//		ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(this, thumbnail,
-//		                                                                       String.valueOf(thumbnail.getId()));
-//		startActivityForResult(intent, IMAGE_CLUSTER_ACTIVITY_CODE, options.toBundle());
-		startActivityForResult(intent, IMAGE_CLUSTER_ACTIVITY_CODE);
+		// Handling transition animation
+		intent.putExtra("transition", String.valueOf(thumbnail.getId()));
+		thumbnail.setTransitionName(String.valueOf(thumbnail.getId()));
+		ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(this, thumbnail,
+		                                                                       String.valueOf(thumbnail.getId()));
+		startActivityForResult(intent, IMAGE_CLUSTER_ACTIVITY_CODE, options.toBundle());
 	}
 
 	/**

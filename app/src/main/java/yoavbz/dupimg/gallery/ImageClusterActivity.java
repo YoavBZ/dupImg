@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -31,16 +32,18 @@ import java.util.stream.Collectors;
 public class ImageClusterActivity extends AppCompatActivity
 		implements ViewPager.OnPageChangeListener, HorizontalListAdapter.OnImageClickListener {
 
-	protected Toolbar mToolbar;
-	protected ArrayList<Image> images;
+	private Toolbar mToolbar;
+	private ArrayList<Image> images;
 	private ArrayList<Image> toDelete;
 	private CustomViewPager mViewPager;
 	private RecyclerView imagesHorizontalList;
 	private HorizontalListAdapter hAdapter;
+	private String transition;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		postponeEnterTransition();
 		setContentView(R.layout.activity_gallery);
 		initValues();
 		initViews();
@@ -48,36 +51,28 @@ public class ImageClusterActivity extends AppCompatActivity
 	}
 
 	private void initValues() {
-		Intent intent = getIntent();
-		if (intent == null || intent.getExtras() == null) {
-			return;
-		}
-		Bundle bundle = intent.getExtras();
-		images = bundle.getParcelableArrayList("IMAGES");
+		images = getIntent().getParcelableArrayListExtra("IMAGES");
+		toDelete = new ArrayList<>();
+		transition = getIntent().getStringExtra("transition");
 	}
 
 	private void initViews() {
 		mToolbar = findViewById(R.id.toolbar_media_gallery);
-		if (getSupportActionBar() != null) {
-			mToolbar.setVisibility(View.GONE);
-			getSupportActionBar().setTitle(R.string.cluster_activity_title);
-		} else {
-			setSupportActionBar(mToolbar);
-			mToolbar.setTitle(R.string.cluster_activity_title);
-		}
-		getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-		getSupportActionBar().setHomeButtonEnabled(true);
+		mToolbar.setVisibility(View.GONE);
+		ActionBar actionBar = getSupportActionBar();
+		actionBar.setTitle(R.string.cluster_activity_title);
+		actionBar.setDisplayHomeAsUpEnabled(true);
+		actionBar.setHomeButtonEnabled(true);
 
 		mViewPager = findViewById(R.id.pager);
-//		mViewPager.setTransitionName(getIntent().getStringExtra("transition"));
 		imagesHorizontalList = findViewById(R.id.horizontal_list);
 	}
 
-	public void initAdapters() {
-		mViewPager.setAdapter(new ViewPagerAdapter(this, images, mToolbar, imagesHorizontalList));
-		toDelete = new ArrayList<>();
+	private void initAdapters() {
+		mViewPager.setAdapter(new ViewPagerAdapter(this, images, mToolbar, imagesHorizontalList, transition));
 		hAdapter = new HorizontalListAdapter(this, images, this, toDelete);
-		imagesHorizontalList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+		imagesHorizontalList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL,
+		                                                              false));
 		imagesHorizontalList.setAdapter(hAdapter);
 		hAdapter.notifyDataSetChanged();
 		mViewPager.addOnPageChangeListener(this);
@@ -151,7 +146,6 @@ public class ImageClusterActivity extends AppCompatActivity
 
 	@Override
 	public void onPageScrollStateChanged(int state) {
-
 	}
 
 	@Override
