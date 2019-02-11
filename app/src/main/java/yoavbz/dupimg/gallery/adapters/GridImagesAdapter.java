@@ -47,10 +47,17 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	@Override
 	public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
 		holder.updateThumbnailSize();
+		List<Image> images = clusters.get(position).getPoints();
+		holder.firstImage = images.get(0);
+		// Setting cluster size
 		Glide.with(context)
 		     .load(holder.firstImage.getUri())
 		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
 		     .into(holder.clusterThumbnail);
+		holder.clusterSize.setText(String.valueOf(images.size()));
+		// Setting cluster date
+		String date = dateFormat.format(holder.firstImage.extractDate(context));
+		holder.clusterDate.setText(date);
 	}
 
 	@Override
@@ -86,13 +93,6 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 					mClickListener.onClusterClick(cluster, clusterThumbnail);
 				}
 			});
-			List<Image> images = clusters.get(getAdapterPosition()).getPoints();
-			firstImage = images.get(0);
-			// Setting cluster size
-			clusterSize.setText(String.valueOf(images.size()));
-			// Setting cluster date
-			String date = dateFormat.format(firstImage.extractDate(context));
-			clusterDate.setText(date);
 		}
 
 		private void updateThumbnailSize() {

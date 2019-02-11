@@ -26,22 +26,22 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 	private final Activity activity;
 	private final OnImageClickListener clickListener;
 	private int currentPosition = 0;
-	private ArrayList<Image> selected;
+	private ArrayList<Image> toDelete;
 
 	/**
 	 * Instantiates a new Horizontal list adapters.
 	 *
-	 * @param activity           the activity
-	 * @param images             the images
-	 * @param imageClickListener the img click
-	 * @param toDelete           Reference to the images list to delete
+	 * @param activity      The activity
+	 * @param images        The list images
+	 * @param clickListener The click listener for the images
+	 * @param toDelete      Reference to the list of images to delete (selected images)
 	 */
-	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClickListener imageClickListener,
+	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClickListener clickListener,
 	                             ArrayList<Image> toDelete) {
 		this.activity = activity;
 		this.images = images;
-		clickListener = imageClickListener;
-		selected = toDelete;
+		this.clickListener = clickListener;
+		this.toDelete = toDelete;
 	}
 
 	@NonNull
@@ -52,49 +52,16 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 	@Override
 	public void onBindViewHolder(@NonNull final HorizontalListAdapter.ViewHolder holder, final int position) {
-		Image image = images.get(position);
-		holder.filename = image.toString();
+		holder.image = images.get(position);
 
 		Glide.with(activity)
-		     .load(image.getUri())
+		     .load(holder.image.getUri())
 		     .apply(new RequestOptions().placeholder(R.drawable.gallery_placeholder))
-		     .into(holder.image);
+		     .into(holder.thumbnail);
 
-		// Set thumbnail color filter
-		ColorMatrix matrix = new ColorMatrix();
-		if (currentPosition != position) {
-			matrix.setSaturation(0);
-			holder.image.setAlpha(0.5f);
-		} else {
-			matrix.setSaturation(1);
-			holder.image.setAlpha(1f);
-		}
-		ColorMatrixColorFilter filter = new ColorMatrixColorFilter(matrix);
-		holder.image.setColorFilter(filter);
-
-		// Set listeners
-		Image currentImage = images.get(position);
-		holder.image.setOnClickListener(view -> {
-			if (!selected.contains(currentImage)) {
-				// Select holder
-				selected.add(image);
-				holder.checkbox.setChecked(true);
-			} else {
-				// Deselect holder
-				selected.remove(image);
-				holder.checkbox.setChecked(false);
-			}
-			activity.invalidateOptionsMenu();
-			// Always perform clickListener click, to navigate to selected image
-			clickListener.onImageClick(position);
-		});
-
-		// Set checkbox state according to selection
-		if (selected.contains(image)) {
-			holder.checkbox.setChecked(true);
-		} else {
-			holder.checkbox.setChecked(false);
-		}
+		holder.updateViews();
+		holder.updateThumbnailFilter(position);
+		holder.updateListener(position);
 	}
 
 	@Override
@@ -116,14 +83,53 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 	class ViewHolder extends RecyclerView.ViewHolder {
 
-		ImageView image;
+		ImageView thumbnail;
 		CheckBox checkbox;
 		String filename;
+		Image image;
 
 		ViewHolder(View layout) {
 			super(layout);
-			image = layout.findViewById(R.id.image);
+			thumbnail = layout.findViewById(R.id.image);
 			checkbox = layout.findViewById(R.id.checkbox);
+		}
+
+		void updateViews() {
+			filename = image.toString();
+			// Set checkbox state according to selection
+			checkbox.setChecked(toDelete.contains(image));
+		}
+
+		void updateThumbnailFilter(int position) {
+			// Set thumbnail color filter
+			ColorMatrix matrix = new ColorMatrix();
+			if (currentPosition != position) {
+				matrix.setSaturation(0);
+				thumbnail.setAlpha(0.5f);
+			} else {
+				matrix.setSaturation(1);
+				thumbnail.setAlpha(1f);
+			}
+			ColorMatrixColorFilter filter = new ColorMatrixColorFilter(matrix);
+			thumbnail.setColorFilter(filter);
+		}
+
+		void updateListener(int position) {
+			// Set listeners
+			thumbnail.setOnClickListener(view -> {
+				if (!toDelete.contains(image)) {
+					// Select holder
+					toDelete.add(image);
+					checkbox.setChecked(true);
+				} else {
+					// Deselect holder
+					toDelete.remove(image);
+					checkbox.setChecked(false);
+				}
+				activity.invalidateOptionsMenu();
+				// Always perform clickListener click, to navigate to selected thumbnail
+				clickListener.onImageClick(position);
+			});
 		}
 	}
 }
