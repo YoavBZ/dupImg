@@ -3,6 +3,8 @@ package yoavbz.dupimg.background;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -28,6 +30,8 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 	private static final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
 	private Notification.Builder mBuilder;
+	private JobInfo job;
+	private JobScheduler scheduler;
 
 	public ClassificationTask(MainActivity mainActivity) {
 		weakReference = new WeakReference<>(mainActivity);
@@ -39,6 +43,12 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		if (activity != null) {
 			Log.d(MainActivity.TAG, "ClassificationTask: Starting image classification asynchronously..");
 
+			scheduler = (JobScheduler) activity.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+			// Stopping JobScheduler while classifying
+			job = scheduler.getPendingJob(MainActivity.JOB_ID);
+			if (job != null) {
+				scheduler.cancel(MainActivity.JOB_ID);
+			}
 			activity.galleryView.setVisibility(View.GONE);
 			activity.progressBar.setVisibility(View.VISIBLE);
 			activity.textView.setVisibility(View.VISIBLE);
@@ -180,6 +190,9 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 			activity.galleryView.setVisibility(View.VISIBLE);
 			activity.galleryView.setImageClusters(clusters);
 			activity.invalidateOptionsMenu();
+			if (job != null) {
+				scheduler.schedule(job);
+			}
 		}
 	}
 
