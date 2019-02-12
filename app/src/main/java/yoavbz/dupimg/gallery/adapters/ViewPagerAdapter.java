@@ -1,18 +1,23 @@
 package yoavbz.dupimg.gallery.adapters;
 
 import android.app.Activity;
+import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
 import yoavbz.dupimg.R;
@@ -66,21 +71,30 @@ public class ViewPagerAdapter extends PagerAdapter {
 		View itemView = activity.getLayoutInflater().inflate(R.layout.pager_item, container, false);
 		Image image = mDataSet.get(position);
 		PhotoView photoView = itemView.findViewById(R.id.image);
-		Glide.with(activity)
-		     .load(image.getUri())
-		     .into(photoView);
-		if (position == 0) {
+		if (transition != null) {
 			photoView.setTransitionName(transition);
-			photoView.getViewTreeObserver().addOnPreDrawListener(
-					new ViewTreeObserver.OnPreDrawListener() {
-						@Override
-						public boolean onPreDraw() {
-							photoView.getViewTreeObserver().removeOnPreDrawListener(this);
-							activity.startPostponedEnterTransition();
-							photoView.setTransitionName(null);
-							return true;
-						}
-					});
+			Glide.with(activity)
+			     .load(image.getUri()).listener(new RequestListener<Drawable>() {
+				@Override
+				public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+					activity.startPostponedEnterTransition();
+					photoView.setTransitionName(null);
+					transition = null;
+					return false;
+				}
+
+				@Override
+				public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+					activity.startPostponedEnterTransition();
+					photoView.setTransitionName(null);
+					transition = null;
+					return false;
+				}
+			}).into(photoView);
+		} else {
+			Glide.with(activity)
+			     .load(image.getUri())
+			     .into(photoView);
 		}
 		// Setting OnPhotoTapListener to show/hide the imagesHorizontalList
 		PhotoViewAttacher photoViewAttacher = new PhotoViewAttacher(photoView);
