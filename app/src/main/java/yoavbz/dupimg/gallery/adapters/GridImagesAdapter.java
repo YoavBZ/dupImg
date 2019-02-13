@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import yoavbz.dupimg.R;
@@ -25,7 +26,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	private ArrayList<Cluster<Image>> clusters;
 	private Context context;
 	private Drawable imgPlaceHolderResId;
-	private GalleryView.OnClusterClickListener mClickListener;
+	private GalleryView.OnClusterClickListener clickListener;
 	private int height;
 	private int width;
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
@@ -52,7 +53,10 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 		// Setting cluster size
 		Glide.with(context)
 		     .load(holder.firstImage.getUri())
-		     .apply(new RequestOptions().placeholder(imgPlaceHolderResId))
+		     .apply(new RequestOptions()
+				            .placeholder(imgPlaceHolderResId)
+				            // Saving original image to cache for future loadings
+				            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
 		     .into(holder.clusterThumbnail);
 		holder.clusterSize.setText(String.valueOf(images.size()));
 		// Setting cluster date
@@ -66,7 +70,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	}
 
 	public void setOnImageClickListener(GalleryView.OnClusterClickListener onImageClickListener) {
-		this.mClickListener = onImageClickListener;
+		this.clickListener = onImageClickListener;
 	}
 
 	public void setImageSize(int width, int height) {
@@ -88,9 +92,9 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 			clusterDate = itemView.findViewById(R.id.timestamp);
 			// Setting item OnClickListener
 			itemView.setOnClickListener(view -> {
-				if (mClickListener != null) {
+				if (clickListener != null) {
 					List<Image> cluster = clusters.get(getAdapterPosition()).getPoints();
-					mClickListener.onClusterClick(cluster, clusterThumbnail);
+					clickListener.onClusterClick(cluster, clusterThumbnail);
 				}
 			});
 		}
