@@ -17,6 +17,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
@@ -71,27 +72,31 @@ public class ViewPagerAdapter extends PagerAdapter {
 		View itemView = activity.getLayoutInflater().inflate(R.layout.pager_item, container, false);
 		Image image = mDataSet.get(position);
 		PhotoView photoView = itemView.findViewById(R.id.image);
-		if (transition != null) {
+		if (position == 0 && transition != null) {
+			// Starting transition when loading is finished (happens only once for first cluster image)
 			photoView.setTransitionName(transition);
 			Glide.with(activity)
-			     .load(image.getUri()).listener(new RequestListener<Drawable>() {
-				@Override
-				public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-					activity.startPostponedEnterTransition();
-					photoView.setTransitionName(null);
-					transition = null;
-					return false;
-				}
+			     .load(image.getUri())
+			     .apply(RequestOptions.noAnimation())
+			     .listener(new RequestListener<Drawable>() {
+				     @Override
+				     public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+					     photoView.setTransitionName(null);
+					     transition = null;
+					     return false;
+				     }
 
-				@Override
-				public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-					activity.startPostponedEnterTransition();
-					photoView.setTransitionName(null);
-					transition = null;
-					return false;
-				}
-			}).into(photoView);
+				     @Override
+				     public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+					     activity.startPostponedEnterTransition();
+					     photoView.setTransitionName(null);
+					     transition = null;
+					     return false;
+				     }
+			     })
+			     .into(photoView);
 		} else {
+			// Default image loading
 			Glide.with(activity)
 			     .load(image.getUri())
 			     .into(photoView);
