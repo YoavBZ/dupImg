@@ -7,4 +7,6 @@
 	<string name="transition">transition</string>
 	<string name="crash_title">Crash Report</string>
 	<string name="crash_text">Sorry, the application crashed. Please send a report to the developer.</string>
+	<string name="no_duplicates">No duplicates were found :)</string>
+	<string name="got_an_error">Got an error :(</string>
 </resources>

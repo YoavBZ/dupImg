@@ -1,5 +1,6 @@
 package yoavbz.dupimg.background;
 
+import android.animation.ObjectAnimator;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -9,6 +10,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import android.view.View;
@@ -98,10 +100,16 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 
 				activity.runOnUiThread(() -> {
 					activity.textView.setText("Scanning " + docs.length + " files..");
-					activity.progressBar.setIndeterminate(true);
-					mBuilder.setProgress(docs.length, 0, true);
 				});
 				Log.d(MainActivity.TAG, "ClassificationTask: Found " + docs.length + " images on " + dirUri.getPath());
+
+				activity.runOnUiThread(() -> {
+					activity.progressBar.setIndeterminate(false);
+					activity.progressBar.setProgress(0);
+					activity.progressBar.setMax(docs.length * 2);
+					mBuilder.setProgress(activity.progressBar.getMax(),
+					                     activity.progressBar.getProgress(), false);
+				});
 
 				// Fetching all the images from the given directory
 				List<DocumentFile> localImages = new ArrayList<>();
@@ -110,15 +118,8 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 					if (!isCancelled() && type != null && type.equals("image/jpeg")) {
 						localImages.add(doc);
 					}
+					publishProgress();
 				}
-
-				activity.runOnUiThread(() -> {
-					activity.progressBar.setIndeterminate(false);
-					activity.progressBar.setProgress(0);
-					activity.progressBar.setMax(docs.length);
-					mBuilder.setProgress(activity.progressBar.getMax(),
-					                     activity.progressBar.getProgress(), false);
-				});
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
 				List<Image> toClusters;
 
@@ -134,6 +135,14 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 					} else {
 						Log.d(MainActivity.TAG, "ClassificationTask: No new images..");
 					}
+					activity.runOnUiThread(() -> {
+						ObjectAnimator.ofInt(activity.progressBar, "progress",
+						                     activity.progressBar.getMax())
+						              .setDuration(400)
+						              .start();
+						mBuilder.setProgress(0, 0, true);
+						activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
+					});
 					toClusters = db.imageDao().getAll();
 				} else {
 					// Custom scan
@@ -154,7 +163,8 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		return new ArrayList<>();
 	}
 
-	private List<Image> getNewImages(Context context, ImageDao dao, ImageClassifier classifier, List<DocumentFile> localImages) {
+	private List<Image> getNewImages(Context context, ImageDao dao, ImageClassifier classifier,
+	                                 @NonNull List<DocumentFile> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
 		localImages.removeIf(file -> dao.getAllUris().contains(file.getUri()));
@@ -186,9 +196,9 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.notificationManager.cancel(NOTIFICATION_ID);
+			activity.galleryView.setImageClusters(clusters);
 			activity.progressBar.setVisibility(View.GONE);
 			activity.galleryView.setVisibility(View.VISIBLE);
-			activity.galleryView.setImageClusters(clusters);
 			activity.invalidateOptionsMenu();
 			if (job != null) {
 				scheduler.schedule(job);
@@ -202,7 +212,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.notificationManager.cancel(NOTIFICATION_ID);
-			activity.textView.setText("Got an error :(");
+			activity.textView.setText(activity.getString(R.string.got_an_error));
 			activity.textView.setVisibility(View.VISIBLE);
 			activity.progressBar.setVisibility(View.GONE);
 			activity.invalidateOptionsMenu();
