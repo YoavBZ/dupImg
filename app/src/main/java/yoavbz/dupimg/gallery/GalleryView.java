@@ -1,13 +1,21 @@
 package yoavbz.dupimg.gallery;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Point;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.transition.ChangeBounds;
+import android.transition.Fade;
+import android.transition.TransitionManager;
+import android.transition.TransitionSet;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
 import org.apache.commons.math3.ml.clustering.Cluster;
@@ -19,12 +27,16 @@ import yoavbz.dupimg.models.Image;
 import java.util.ArrayList;
 import java.util.List;
 
+@SuppressWarnings("ConstantConditions")
 public class GalleryView extends RecyclerView {
 
 	private final MainActivity activity;
 	private GridImagesAdapter mAdapter;
 	private ArrayList<Cluster<Image>> imageClusters;
 	private Drawable mPlaceHolder;
+	// Scaling
+	private ScaleGestureDetector scaleDetector;
+	private TransitionSet transition;
 
 	/**
 	 * Instantiates a new Media gallery view.
@@ -47,13 +59,49 @@ public class GalleryView extends RecyclerView {
 		super(context, attrs);
 		this.activity = (MainActivity) context;
 		initAdapter();
-		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.GalleryView,
-		                                                         0, 0);
-		int spanCount = a.getInteger(R.styleable.GalleryView_span_count, 2);
-		setSpanCount(spanCount);
+		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.GalleryView, 0, 0);
+		setSpanCount(2);
 		mPlaceHolder = a.getDrawable(R.styleable.GalleryView_place_holder);
-		int orientation = a.getInt(R.styleable.GalleryView_gallery_orientation, VERTICAL);
-		setOrientation(orientation);
+		transition = new TransitionSet()
+				.addTransition(new ChangeBounds())
+				.addTransition(new Fade(Fade.IN));
+		initScaling();
+	}
+
+	private void initScaling() {
+		// Initiating ScaleGestureDetector
+		scaleDetector = new ScaleGestureDetector(activity, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+
+			private static final float DISTANCE_THRESHOLD = 500; // In px
+			private float initialSpan;
+
+			@Override
+			public boolean onScaleBegin(ScaleGestureDetector detector) {
+				initialSpan = detector.getCurrentSpan();
+				return true;
+			}
+
+			@Override
+			public boolean onScale(ScaleGestureDetector detector) {
+				int spanCount = ((GridLayoutManager) getLayoutManager()).getSpanCount();
+				if (measureScale(detector)) {
+					float scaleFactor = detector.getScaleFactor();
+					if (scaleFactor < 1f && spanCount > 1) {
+						setSpanCount(spanCount + 1);
+						initialSpan = detector.getCurrentSpan();
+					} else if (scaleFactor > 1f && spanCount < 3) {
+						setSpanCount(spanCount - 1);
+						initialSpan = detector.getCurrentSpan();
+					}
+				}
+				return true;
+			}
+
+			private boolean measureScale(@NonNull ScaleGestureDetector detector) {
+				float distance = Math.abs(detector.getCurrentSpan() - initialSpan);
+				return distance > DISTANCE_THRESHOLD;
+			}
+		});
 	}
 
 	/**
@@ -76,7 +124,7 @@ public class GalleryView extends RecyclerView {
 			imageClusters.addAll(clusters);
 			activity.textView.setVisibility(View.GONE);
 		} else {
-			activity.textView.setText("No duplicates were found :)");
+			activity.textView.setText(activity.getString(R.string.no_duplicates));
 		}
 		notifyDataSetChanged();
 	}
@@ -85,11 +133,7 @@ public class GalleryView extends RecyclerView {
 	 * Notify adapter for data set changed.
 	 */
 	public void notifyDataSetChanged() {
-		if (mAdapter == null) {
-			initAdapter();
-		} else {
-			mAdapter.notifyDataSetChanged();
-		}
+		mAdapter.notifyDataSetChanged();
 	}
 
 	/**
@@ -113,17 +157,9 @@ public class GalleryView extends RecyclerView {
 		int width = sizes.x / spanCount;
 		int height = 900 / spanCount;
 		mAdapter.setImageSize(width, height);
-
+		// Updating LayoutManager
+		TransitionManager.beginDelayedTransition(this, transition);
 		setLayoutManager(new GridLayoutManager(activity, spanCount));
-	}
-
-	/**
-	 * Sets orientation for imageView scrolling.
-	 *
-	 * @param orientation the orientation
-	 */
-	public void setOrientation(int orientation) {
-		((GridLayoutManager) getLayoutManager()).setOrientation(orientation);
 	}
 
 	public List<Image> getAllImages() {
@@ -134,8 +170,12 @@ public class GalleryView extends RecyclerView {
 		return images;
 	}
 
-	public int getSpanCount() {
-		return ((GridLayoutManager) getLayoutManager()).getSpanCount();
+	@Override
+	@SuppressLint("ClickableViewAccessibility")
+	public boolean onTouchEvent(@NonNull MotionEvent ev) {
+		super.onTouchEvent(ev);
+		scaleDetector.onTouchEvent(ev);
+		return true;
 	}
 
 	public interface OnClusterClickListener {

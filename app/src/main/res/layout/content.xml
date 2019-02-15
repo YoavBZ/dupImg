@@ -36,7 +36,8 @@
 			android:id="@+id/gallery"
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
-			android:layoutAnimation="@anim/grid_animation"
+			android:orientation="vertical"
+			app:spanCount="2"
 			app:place_holder="@drawable/gallery_placeholder"/>
 
 </android.support.constraint.ConstraintLayout>

@@ -2,11 +2,11 @@
 <!-- A single cluster in the images grid -->
 <RelativeLayout
 		xmlns:android="http://schemas.android.com/apk/res/android"
+		android:layout_height="match_parent"
 		android:layout_width="match_parent"
 		android:background="?attr/selectableItemBackground"
 		android:clickable="true"
-		android:focusable="true"
-		android:layout_height="match_parent">
+		android:focusable="true">
 
 	<ImageView
 			android:id="@+id/cluster_thumbnail"
@@ -18,25 +18,27 @@
 
 	<TextView
 			android:id="@+id/cluster_size"
-			android:layout_height="25dp"
+			android:layout_height="23dp"
 			android:layout_width="wrap_content"
-			android:minWidth="32dp"
+			android:minWidth="26dp"
 			android:layout_alignEnd="@id/cluster_thumbnail"
 			android:layout_alignTop="@id/cluster_thumbnail"
 			android:gravity="center"
-			android:background="#3b3b3b"
-			android:textColor="#ffffff"/>
+			android:background="@drawable/round_background"
+			android:textColor="#ffffff"
+			android:alpha="0.75"/>
 
 	<TextView
 			android:id="@+id/timestamp"
-			android:layout_height="25dp"
+			android:layout_height="23dp"
 			android:layout_width="wrap_content"
-			android:minWidth="88dp"
+			android:minWidth="85dp"
 			android:layout_alignStart="@id/cluster_thumbnail"
 			android:layout_alignTop="@id/cluster_thumbnail"
 			android:gravity="center"
-			android:background="#3b3b3b"
-			android:textColor="#ffffff"/>
+			android:background="@drawable/round_background"
+			android:textColor="#ffffff"
+			android:alpha="0.75"/>
 
 
 </RelativeLayout>
