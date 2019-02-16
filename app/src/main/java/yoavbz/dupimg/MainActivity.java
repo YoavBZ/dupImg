@@ -288,9 +288,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 			isCustomScan = false;
 			rescanImages(null);
 			return true;
-//		} else if (item.getItemId() == R.id.action_layout) {
-//			 TODO: Replace this with scale gesture detector
-//			galleryView.setSpanCount(galleryView.getSpanCount() == 2 ? 1 : 2);
 		}
 		return super.onOptionsItemSelected(item);
 	}
