@@ -25,7 +25,6 @@ import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.models.Image;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -129,8 +128,9 @@ public class NotificationJobService extends JobService {
 			ArrayList<Image> images = (ArrayList<Image>) clusters.get(i).getPoints();
 			Intent intent = new Intent(this, ImageClusterActivity.class);
 			intent.putParcelableArrayListExtra("IMAGES", images);
-			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-			                                                        PendingIntent.FLAG_UPDATE_CURRENT);
+			int id = (int) SystemClock.uptimeMillis();
+			PendingIntent pendingIntent = PendingIntent.getActivity(this, id, intent,
+			                                                        PendingIntent.FLAG_ONE_SHOT);
 			Image previewImg = images.get(0);
 			Bitmap rotatedPreviewImg = Image.getOrientedBitmap(getContentResolver(), previewImg.getUri());
 			builder.setContentIntent(pendingIntent)
@@ -139,7 +139,6 @@ public class NotificationJobService extends JobService {
 			       .setStyle(new NotificationCompat.BigPictureStyle()
 					                 .bigPicture(rotatedPreviewImg)
 					                 .bigLargeIcon(null));
-			int id = (int) SystemClock.uptimeMillis();
 			mNotifyManager.notify(id, builder.build());
 		}
 	}
