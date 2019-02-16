@@ -86,11 +86,11 @@ public class GalleryView extends RecyclerView {
 				int spanCount = ((GridLayoutManager) getLayoutManager()).getSpanCount();
 				if (measureScale(detector)) {
 					float scaleFactor = detector.getScaleFactor();
-					if (scaleFactor < 1f && spanCount > 1) {
-						setSpanCount(spanCount + 1);
-						initialSpan = detector.getCurrentSpan();
-					} else if (scaleFactor > 1f && spanCount < 3) {
+					if (scaleFactor > 1f && spanCount > 1) {
 						setSpanCount(spanCount - 1);
+						initialSpan = detector.getCurrentSpan();
+					} else if (scaleFactor < 1f && spanCount < 3) {
+						setSpanCount(spanCount + 1);
 						initialSpan = detector.getCurrentSpan();
 					}
 				}
