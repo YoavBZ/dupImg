@@ -6,12 +6,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.provider.DocumentsContract;
 import android.support.annotation.NonNull;
-import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import android.view.View;
 import org.apache.commons.math3.ml.clustering.Cluster;
@@ -25,6 +27,8 @@ import yoavbz.dupimg.models.Image;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 
 public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>>> {
@@ -96,30 +100,22 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 				} else {
 					activity.isCustomScan = true;
 				}
-				DocumentFile[] docs = DocumentFile.fromTreeUri(activity, dirUri).listFiles();
+				ArrayList<Uri> localImages = fetchLocalUris(activity, dirUri);
 
 				activity.runOnUiThread(() -> {
-					activity.textView.setText("Scanning " + docs.length + " files..");
+					activity.textView.setText("Scanning " + localImages.size() + " files..");
 				});
-				Log.d(MainActivity.TAG, "ClassificationTask: Found " + docs.length + " images on " + dirUri.getPath());
+				Log.d(MainActivity.TAG,
+				      "ClassificationTask: Found " + localImages.size() + " images on " + dirUri.getPath());
 
 				activity.runOnUiThread(() -> {
 					activity.progressBar.setIndeterminate(false);
 					activity.progressBar.setProgress(0);
-					activity.progressBar.setMax(docs.length * 2);
+					activity.progressBar.setMax(localImages.size() * 2);
 					mBuilder.setProgress(activity.progressBar.getMax(),
 					                     activity.progressBar.getProgress(), false);
 				});
 
-				// Fetching all the images from the given directory
-				List<DocumentFile> localImages = new ArrayList<>();
-				for (DocumentFile doc : docs) {
-					String type = doc.getType();
-					if (!isCancelled() && type != null && type.equals("image/jpeg")) {
-						localImages.add(doc);
-					}
-					publishProgress();
-				}
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
 				List<Image> toClusters;
 
@@ -147,14 +143,21 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 				} else {
 					// Custom scan
 					toClusters = new ArrayList<>();
-					for (DocumentFile file : localImages) {
+					for (Uri uri : localImages) {
 						if (!isCancelled()) {
-							toClusters.add(new Image(file, activity, classifier));
+							toClusters.add(new Image(uri, activity, classifier));
 						}
 						publishProgress();
 					}
 				}
-				return clusterer.cluster(toClusters);
+				List<Cluster<Image>> clusters = clusterer.cluster(toClusters);
+				// Sorting images in each cluster
+				Comparator<Image> imageComparator = (image1, image2) ->
+						image1.getDateTaken(activity).compareTo(image2.getDateTaken(activity));
+				for (Cluster<Image> cluster : clusters) {
+					cluster.getPoints().sort(imageComparator);
+				}
+				return clusters;
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "ClassificationTask: Got an exception", e);
 				cancel(true);
@@ -163,14 +166,32 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		return new ArrayList<>();
 	}
 
-	private List<Image> getNewImages(Context context, ImageDao dao, ImageClassifier classifier,
-	                                 @NonNull List<DocumentFile> localImages) {
+	static ArrayList<Uri> fetchLocalUris(@NonNull Context context, Uri dir) {
+		ContentResolver contentResolver = context.getContentResolver();
+		ArrayList<Uri> uris = new ArrayList<>();
+		Uri child = DocumentsContract.buildChildDocumentsUriUsingTree(dir, DocumentsContract.getTreeDocumentId(dir));
+
+		Cursor c = contentResolver.query(child, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+		                                                     DocumentsContract.Document.COLUMN_MIME_TYPE},
+		                                 null, null, null);
+		while (c.moveToNext()) {
+			final String id = c.getString(0);
+			final String mime = c.getString(1);
+			if ("image/jpeg".equals(mime)) {
+				uris.add(DocumentsContract.buildDocumentUriUsingTree(dir, id));
+			}
+		}
+		return uris;
+	}
+
+	private List<Image> getNewImages(Context context, @NonNull ImageDao dao, ImageClassifier classifier,
+	                                 @NonNull List<Uri> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
-		localImages.removeIf(file -> dao.getAllUris().contains(file.getUri()));
-		for (DocumentFile newImage : localImages) {
+		localImages.removeAll(dao.getAllUris());
+		for (Uri uri : localImages) {
 			try {
-				Image image = new Image(newImage, context, classifier);
+				Image image = new Image(uri, context, classifier);
 				newImages.add(image);
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "getNewImages: ", e);
@@ -196,6 +217,12 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.notificationManager.cancel(NOTIFICATION_ID);
+			// Sorting clusters by date
+			clusters.sort((Cluster<Image> cluster1, Cluster<Image> cluster2) -> {
+				Date date1 = cluster1.getPoints().get(0).getDateTaken();
+				Date date2 = cluster2.getPoints().get(0).getDateTaken();
+				return date2.compareTo(date1);
+			});
 			activity.galleryView.setImageClusters(clusters);
 			activity.progressBar.setVisibility(View.GONE);
 			activity.galleryView.setVisibility(View.VISIBLE);

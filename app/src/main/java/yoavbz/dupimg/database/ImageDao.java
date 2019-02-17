@@ -2,10 +2,8 @@ package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
 import android.net.Uri;
-import android.support.v4.provider.DocumentFile;
 import yoavbz.dupimg.models.Image;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Dao
@@ -27,14 +25,10 @@ public abstract class ImageDao {
 	public abstract List<Image> getAll();
 
 	@Transaction
-	public boolean deleteNotInList(List<DocumentFile> localImages) {
+	public boolean deleteNotInList(List<Uri> localImages) {
 		boolean deleted = false;
-		List<Uri> localUris = new ArrayList<>();
-		for (DocumentFile file : localImages){
-			localUris.add(file.getUri());
-		}
 		for (Uri uri : getAllUris()) {
-			if (!localUris.contains(uri)) {
+			if (!localImages.contains(uri)) {
 				delete(uri);
 				deleted = true;
 			}

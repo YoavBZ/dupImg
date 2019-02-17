@@ -12,6 +12,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestOptions;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import yoavbz.dupimg.R;
@@ -57,10 +58,11 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 				            .placeholder(imgPlaceHolderResId)
 				            // Saving original image to cache for future loadings
 				            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
+		     .transition(DrawableTransitionOptions.withCrossFade(500))
 		     .into(holder.clusterThumbnail);
 		holder.clusterSize.setText(String.valueOf(images.size()));
 		// Setting cluster date
-		String date = dateFormat.format(holder.firstImage.extractDate(context));
+		String date = dateFormat.format(holder.firstImage.getDateTaken(context));
 		holder.clusterDate.setText(date);
 	}
 

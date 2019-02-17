@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.media.ExifInterface;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
@@ -37,7 +38,9 @@ public class Image implements Parcelable, Clusterable {
 	private Uri uri;
 	private Date dateTaken;
 	private double[] point;
+
 	@Ignore
+	@SuppressLint("SimpleDateFormat")
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
 
 	public Image() {
@@ -48,17 +51,19 @@ public class Image implements Parcelable, Clusterable {
 	 * In addition, generates feature vector using the context's {@link android.content.ContentResolver}
 	 * for opening InputStream of the {@link DocumentFile} corresponding Uri
 	 *
-	 * @param file       The image {@link DocumentFile}
+	 * @param uri        The image {@link Uri}
 	 * @param context    A context for getting {@link android.content.ContentResolver}
 	 * @param classifier A TensorFlow Lite classifier, for generating feature vector (vector field)
 	 */
-	public Image(DocumentFile file, Context context, ImageClassifier classifier) throws IOException {
-		uri = file.getUri();
+	public Image(@NonNull Uri uri, @NonNull Context context, @NonNull ImageClassifier classifier) throws IOException {
+		this.uri = uri;
 		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
 			point = classifier.recognizeImage(getBitmap(inputStream));
 		}
+		getDateTaken(context);
 	}
 
+	@Nullable
 	public static Bitmap getOrientedBitmap(ContentResolver resolver, Uri uri) {
 		try {
 			int rotation;
@@ -106,20 +111,22 @@ public class Image implements Parcelable, Clusterable {
 	}
 
 	@SuppressLint("SimpleDateFormat")
-	public Date extractDate(Context context) {
-		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
-			// Extracting DATETIME_ORIGINAL
-			ExifInterface exif = new ExifInterface(inputStream);
-			String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
-			dateTaken = dateFormat.parse(date);
-		} catch (Exception e) {
-			DocumentFile file = DocumentFile.fromSingleUri(context, uri);
-			Log.e(MainActivity.TAG, "Image - Got an exception while extracting date from " + file.getName(), e);
-			// Fallback - Extracting creationTime attribute
-			dateTaken = new Date(file.lastModified());
+	public Date getDateTaken(Context context) {
+		if (dateTaken == null) {
+			try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
+				// Extracting DATETIME_ORIGINAL
+				ExifInterface exif = new ExifInterface(inputStream);
+				String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
+				dateTaken = dateFormat.parse(date);
+			} catch (Exception e) {
+				DocumentFile file = DocumentFile.fromSingleUri(context, uri);
+				Log.e(MainActivity.TAG, "Image - Got an exception while extracting date from " + file.getName(), e);
+				// Fallback - Extracting creationTime attribute
+				dateTaken = new Date(file.lastModified());
+			}
+			// Update image in DB
+			new Thread(() -> ImageDatabase.getAppDatabase(context).imageDao().update(this)).start();
 		}
-		// Update image in DB
-		new Thread(() -> ImageDatabase.getAppDatabase(context).imageDao().update(this)).start();
 		return dateTaken;
 	}
 

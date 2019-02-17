@@ -13,7 +13,6 @@ import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
-import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
@@ -47,7 +46,7 @@ public class NotificationJobService extends JobService {
 
 				db = ImageDatabase.getAppDatabase(NotificationJobService.this).imageDao();
 				// Fetching all the images from the camera directory
-				List<DocumentFile> localImages = getLocalImages();
+				List<Uri> localImages = getLocalImages();
 				// Removing from the database images that were deleted from local directory
 				boolean deletedImages = db.deleteNotInList(localImages);
 				if (deletedImages) {
@@ -93,13 +92,13 @@ public class NotificationJobService extends JobService {
 		return true;
 	}
 
-	private List<Image> getNewImages(List<DocumentFile> localImages, ImageClassifier classifier) {
+	private List<Image> getNewImages(@NonNull List<Uri> localImages, ImageClassifier classifier) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
-		localImages.removeIf(file -> db.getAllUris().contains(file.getUri()));
-		for (DocumentFile newImage : localImages) {
+		localImages.removeAll(db.getAllUris());
+		for (Uri uri : localImages) {
 			try {
-				Image image = new Image(newImage, this, classifier);
+				Image image = new Image(uri, this, classifier);
 				newImages.add(image);
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "getNewImages: ", e);
@@ -108,19 +107,10 @@ public class NotificationJobService extends JobService {
 		return newImages;
 	}
 
-	private List<DocumentFile> getLocalImages() {
-		List<DocumentFile> images = new ArrayList<>();
+	private List<Uri> getLocalImages() {
 		String uriString = PreferenceManager.getDefaultSharedPreferences(this)
 		                                    .getString("dirUri", null);
-		Uri uri = Uri.parse(uriString);
-		DocumentFile[] files = DocumentFile.fromTreeUri(NotificationJobService.this, uri).listFiles();
-		for (DocumentFile file : files) {
-			String type = file.getType();
-			if (type != null && type.equals("image/jpeg")) {
-				images.add(file);
-			}
-		}
-		return images;
+		return ClassificationTask.fetchLocalUris(NotificationJobService.this, Uri.parse(uriString));
 	}
 
 	private void processClusters(@NonNull List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
