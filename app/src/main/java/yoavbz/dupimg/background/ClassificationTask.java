@@ -101,14 +101,12 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 					activity.isCustomScan = true;
 				}
 				ArrayList<Uri> localImages = fetchLocalUris(activity, dirUri);
-
-				activity.runOnUiThread(() -> {
-					activity.textView.setText("Scanning " + localImages.size() + " files..");
-				});
+				int size = localImages.size();
 				Log.d(MainActivity.TAG,
-				      "ClassificationTask: Found " + localImages.size() + " images on " + dirUri.getPath());
+				      "ClassificationTask: Found " + size + " images on " + dirUri.getPath());
 
 				activity.runOnUiThread(() -> {
+					activity.textView.setText("Scanning " + size + " files..");
 					activity.progressBar.setIndeterminate(false);
 					activity.progressBar.setProgress(0);
 					activity.progressBar.setMax(localImages.size() * 2);
@@ -131,6 +129,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 					} else {
 						Log.d(MainActivity.TAG, "ClassificationTask: No new images..");
 					}
+					// Animating ProgressBars
 					activity.runOnUiThread(() -> {
 						ObjectAnimator.ofInt(activity.progressBar, "progress",
 						                     activity.progressBar.getMax())
@@ -171,14 +170,15 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		ArrayList<Uri> uris = new ArrayList<>();
 		Uri child = DocumentsContract.buildChildDocumentsUriUsingTree(dir, DocumentsContract.getTreeDocumentId(dir));
 
-		Cursor c = contentResolver.query(child, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-		                                                     DocumentsContract.Document.COLUMN_MIME_TYPE},
-		                                 null, null, null);
-		while (c.moveToNext()) {
-			final String id = c.getString(0);
-			final String mime = c.getString(1);
-			if ("image/jpeg".equals(mime)) {
-				uris.add(DocumentsContract.buildDocumentUriUsingTree(dir, id));
+		try (Cursor c = contentResolver.query(child, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+		                                                          DocumentsContract.Document.COLUMN_MIME_TYPE},
+		                                      null, null, null)) {
+			while (c.moveToNext()) {
+				final String id = c.getString(0);
+				final String mime = c.getString(1);
+				if ("image/jpeg".equals(mime)) {
+					uris.add(DocumentsContract.buildDocumentUriUsingTree(dir, id));
+				}
 			}
 		}
 		return uris;
