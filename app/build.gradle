@@ -46,4 +46,5 @@ dependencies {
     implementation 'com.bignerdranch.android:recyclerview-multiselect:0.2'
     implementation 'com.airbnb.android:lottie:2.7.0'
     debugImplementation 'com.amitshekhar.android:debug-db:1.0.4'
+    implementation 'at.wirecube:additive_animations:1.6.2'
 }

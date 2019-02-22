@@ -6,7 +6,6 @@ import android.net.Uri;
 import yoavbz.dupimg.models.Image;
 
 import java.util.Arrays;
-import java.util.Date;
 import java.util.stream.Collectors;
 
 @Database(entities = Image.class, version = 1, exportSchema = false)
@@ -27,15 +26,6 @@ public abstract class ImageDatabase extends RoomDatabase {
 
 	@SuppressWarnings("WeakerAccess")
 	static class Converters {
-		@TypeConverter
-		public static Date fromTimestamp(Long value) {
-			return value == null ? null : new Date(value);
-		}
-
-		@TypeConverter
-		public static Long dateToTimestamp(Date date) {
-			return date == null ? null : date.getTime();
-		}
 
 		@TypeConverter
 		public static String uriToString(Uri uri) {

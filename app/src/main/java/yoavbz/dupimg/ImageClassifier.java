@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.support.annotation.NonNull;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.*;
@@ -20,7 +21,8 @@ public class ImageClassifier implements Closeable {
 	private int inputSize;
 	private List<String> labelList;
 
-	public ImageClassifier(Context context, String modelPath, String labelPath, int inputSize) throws IOException {
+	public ImageClassifier(@NonNull Context context, String modelPath, String labelPath, int inputSize)
+			throws IOException {
 		AssetManager assetManager = context.getAssets();
 		interpreter = new Interpreter(loadModelFile(assetManager, modelPath));
 		labelList = loadLabelList(assetManager, labelPath);
@@ -65,7 +67,7 @@ public class ImageClassifier implements Closeable {
 		return labelList;
 	}
 
-	private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
+	private ByteBuffer convertBitmapToByteBuffer(@NonNull Bitmap bitmap) {
 		final int BATCH_SIZE = 1;
 		final int PIXEL_SIZE = 3;
 		ByteBuffer byteBuffer = ByteBuffer.allocateDirect(BATCH_SIZE * inputSize * inputSize * PIXEL_SIZE);

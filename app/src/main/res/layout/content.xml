@@ -32,6 +32,17 @@
 			app:layout_constraintEnd_toEndOf="parent"
 			style="@style/Widget.AppCompat.ProgressBar.Horizontal"/>
 
+	<ImageView
+			android:id="@+id/preview"
+			android:layout_width="100dp"
+			android:layout_height="80dp"
+			app:layout_constraintTop_toBottomOf="@id/classification_progress"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			android:scaleType="centerCrop"
+			android:alpha="0"
+			app:layout_constraintHorizontal_bias="0.75"/>
+
 	<yoavbz.dupimg.gallery.GalleryView
 			android:id="@+id/gallery"
 			android:layout_width="match_parent"

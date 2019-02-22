@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 
 @SuppressWarnings("ConstantConditions")
 @Entity(tableName = "images")
@@ -36,7 +35,7 @@ public class Image implements Parcelable, Clusterable {
 	@PrimaryKey
 	@NonNull
 	private Uri uri;
-	private Date dateTaken;
+	private long dateTaken;
 	private double[] point;
 
 	@Ignore
@@ -57,42 +56,41 @@ public class Image implements Parcelable, Clusterable {
 	 */
 	public Image(@NonNull Uri uri, @NonNull Context context, @NonNull ImageClassifier classifier) throws IOException {
 		this.uri = uri;
-		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
-			point = classifier.recognizeImage(getBitmap(inputStream));
-		}
+		point = classifier.recognizeImage(getScaledBitmap(context));
 		getDateTaken(context);
 	}
 
 	@Nullable
-	public static Bitmap getOrientedBitmap(ContentResolver resolver, Uri uri) {
+	public Bitmap getOrientedBitmap(Context context) {
 		try {
 			int rotation;
-			InputStream in = resolver.openInputStream(uri);
-			ExifInterface exif = new ExifInterface(in);
-			switch (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)) {
-				case ExifInterface.ORIENTATION_ROTATE_90:
-					rotation = 90;
-					break;
-				case ExifInterface.ORIENTATION_ROTATE_180:
-					rotation = 180;
-					break;
-				case ExifInterface.ORIENTATION_ROTATE_270:
-					rotation = 270;
-					break;
-				default:
-					rotation = ExifInterface.ORIENTATION_UNDEFINED;
+			// Extracting rotation state
+			ContentResolver contentResolver = context.getContentResolver();
+			try (InputStream in = contentResolver.openInputStream(uri)) {
+				ExifInterface exif = new ExifInterface(in);
+				switch (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)) {
+					case ExifInterface.ORIENTATION_ROTATE_90:
+						rotation = 90;
+						break;
+					case ExifInterface.ORIENTATION_ROTATE_180:
+						rotation = 180;
+						break;
+					case ExifInterface.ORIENTATION_ROTATE_270:
+						rotation = 270;
+						break;
+					default:
+						rotation = ExifInterface.ORIENTATION_UNDEFINED;
+				}
 			}
-			in.close();
-
-			in = resolver.openInputStream(uri);
-			Bitmap bitmap = BitmapFactory.decodeStream(in);
-			in.close();
+			// Constructing a Bitmap
+			Bitmap bitmap = getScaledBitmap(context);
+			// Rotating
 			Matrix rotationMatrix = new Matrix();
 			rotationMatrix.postRotate(rotation);
 			return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
 			                           rotationMatrix, false);
 		} catch (Exception e) {
-			Log.e(MainActivity.TAG, "Got an exception", e);
+			Log.e(MainActivity.TAG, "Got an exception while constructing oriented Bitmap", e);
 		}
 		return null;
 	}
@@ -106,31 +104,30 @@ public class Image implements Parcelable, Clusterable {
 		this.uri = uri;
 	}
 
-	public Date getDateTaken() {
+	public long getDateTaken() {
 		return dateTaken;
 	}
 
-	@SuppressLint("SimpleDateFormat")
-	public Date getDateTaken(Context context) {
-		if (dateTaken == null) {
+	public long getDateTaken(Context context) {
+		if (dateTaken == 0) {
 			try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
 				// Extracting DATETIME_ORIGINAL
 				ExifInterface exif = new ExifInterface(inputStream);
 				String date = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
-				dateTaken = dateFormat.parse(date);
+				dateTaken = dateFormat.parse(date).getTime();
 			} catch (Exception e) {
 				DocumentFile file = DocumentFile.fromSingleUri(context, uri);
 				Log.e(MainActivity.TAG, "Image - Got an exception while extracting date from " + file.getName(), e);
 				// Fallback - Extracting creationTime attribute
-				dateTaken = new Date(file.lastModified());
+				dateTaken = file.lastModified();
 			}
 			// Update image in DB
-			new Thread(() -> ImageDatabase.getAppDatabase(context).imageDao().update(this)).start();
+			ImageDatabase.getAppDatabase(context).imageDao().update(this);
 		}
 		return dateTaken;
 	}
 
-	public void setDateTaken(Date dateTaken) {
+	public void setDateTaken(long dateTaken) {
 		this.dateTaken = dateTaken;
 	}
 
@@ -145,12 +142,14 @@ public class Image implements Parcelable, Clusterable {
 	}
 
 	/**
-	 * @param inputStream The corresponding image's InputStream (from its {@link DocumentFile})
-	 * @return A Bitmap representation of the image
+	 * @param context A context to access the image's InputStream (from its {@link Uri}) using {@link ContentResolver}
+	 * @return A scaled Bitmap representation of the image (224x224 pixels)
 	 */
-	private Bitmap getBitmap(InputStream inputStream) {
-		Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-		return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
+	private Bitmap getScaledBitmap(Context context) throws IOException {
+		try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
+			Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+			return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
+		}
 	}
 
 	public void delete(Context context) {
@@ -174,8 +173,7 @@ public class Image implements Parcelable, Clusterable {
 
 	private Image(Parcel in) {
 		uri = Uri.parse(in.readString());
-		long longDate = in.readLong();
-		dateTaken = (longDate != 0) ? new Date(longDate) : null;
+		dateTaken = in.readLong();
 		point = in.createDoubleArray();
 	}
 
@@ -192,7 +190,7 @@ public class Image implements Parcelable, Clusterable {
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
 		dest.writeString(uri.toString());
-		dest.writeLong((dateTaken != null) ? dateTaken.getTime() : 0);
+		dest.writeLong(dateTaken);
 		dest.writeDoubleArray(point);
 	}
 

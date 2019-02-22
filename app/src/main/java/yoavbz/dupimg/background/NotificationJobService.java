@@ -36,7 +36,7 @@ public class NotificationJobService extends JobService {
 	@Override
 	public boolean onStartJob(JobParameters params) {
 		Log.d(MainActivity.TAG, "NotificationJobService: onStartJob");
-		mNotifyManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+		mNotifyManager = getSystemService(NotificationManager.class);
 		thread = new Thread(() -> {
 			createNotificationChannel();
 			boolean updateUi = false;
@@ -114,15 +114,14 @@ public class NotificationJobService extends JobService {
 	}
 
 	private void processClusters(@NonNull List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
-		for (int i = 0; i < clusters.size(); i++) {
-			ArrayList<Image> images = (ArrayList<Image>) clusters.get(i).getPoints();
+		for (Cluster<Image> cluster : clusters) {
+			List<Image> images = cluster.getPoints();
 			Intent intent = new Intent(this, ImageClusterActivity.class);
-			intent.putParcelableArrayListExtra("IMAGES", images);
+			intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) images);
 			int id = (int) SystemClock.uptimeMillis();
-			PendingIntent pendingIntent = PendingIntent.getActivity(this, id, intent,
-			                                                        PendingIntent.FLAG_ONE_SHOT);
+			PendingIntent pendingIntent = PendingIntent.getActivity(this, id, intent, PendingIntent.FLAG_ONE_SHOT);
 			Image previewImg = images.get(0);
-			Bitmap rotatedPreviewImg = Image.getOrientedBitmap(getContentResolver(), previewImg.getUri());
+			Bitmap rotatedPreviewImg = previewImg.getOrientedBitmap(this);
 			builder.setContentIntent(pendingIntent)
 			       .setContentTitle("Found " + images.size() + " new duplicates!")
 			       .setLargeIcon(rotatedPreviewImg)

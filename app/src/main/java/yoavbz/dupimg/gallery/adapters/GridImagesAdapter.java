@@ -30,6 +30,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 	private GalleryView.OnClusterClickListener clickListener;
 	private int height;
 	private int width;
+	@SuppressLint("SimpleDateFormat")
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
 	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters, Drawable imgPlaceHolderResId) {
@@ -62,7 +63,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 		     .into(holder.clusterThumbnail);
 		holder.clusterSize.setText(String.valueOf(images.size()));
 		// Setting cluster date
-		String date = dateFormat.format(holder.firstImage.getDateTaken(context));
+		String date = dateFormat.format(holder.firstImage.getDateTaken());
 		holder.clusterDate.setText(date);
 	}
 

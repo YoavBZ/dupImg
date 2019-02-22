@@ -8,4 +8,10 @@
 			android:visible="false"
 			app:showAsAction="always"/>
 
+	<item android:id="@+id/action_cancel"
+			android:title="Cancel"
+			android:orderInCategory="1"
+			android:visible="false"
+			app:showAsAction="always"/>
+
 </menu>

@@ -7,7 +7,6 @@ import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.*;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -41,6 +40,7 @@ import yoavbz.dupimg.models.Image;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
 		GalleryView.OnClusterClickListener {
@@ -55,19 +55,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	public static final String ACTION_UPDATE_UI = "yoavbz.dupimg.ACTION_UPDATE_UI";
 
 	private ClassificationTask asyncTask;
+	public AtomicBoolean isAsyncTaskRunning = new AtomicBoolean(false);
 	public NotificationManager notificationManager;
 
 	public GalleryView galleryView;
 	public TextView textView;
 	public ProgressBar progressBar;
 
-	public boolean isCustomScan = false;
+	public AtomicBoolean isCustomScan = new AtomicBoolean(false);
 
 	private SharedPreferences pref;
 	private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			if (!isCustomScan && ACTION_UPDATE_UI.equals(intent.getAction())) {
+			if (!isCustomScan.get() && ACTION_UPDATE_UI.equals(intent.getAction())) {
 				rescanImages(null);
 			}
 		}
@@ -147,7 +148,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		                                                          .findItem(R.id.drawer_switch)
 		                                                          .getActionView();
 		boolean isJobScheduled = pref.getBoolean("isJobSchedule", true);
-		JobScheduler scheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
+		JobScheduler scheduler = getSystemService(JobScheduler.class);
 		Log.d(TAG, "MainActivity: Background service is " + (isJobScheduled ? "" : "not ") + "running");
 		monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
 			if (isChecked) {
@@ -173,7 +174,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		galleryView.setOnImageClickListener(this);
 
 		// Saving objects for future use
-		notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+		notificationManager = getSystemService(NotificationManager.class);
 		textView = findViewById(R.id.content_text);
 		progressBar = findViewById(R.id.classification_progress);
 
@@ -215,7 +216,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		switch (requestCode) {
 			case IMAGE_CLUSTER_ACTIVITY_CODE:
 				if (resultCode == RESULT_OK) {
-					if (!isCustomScan) {
+					if (!isCustomScan.get()) {
 						rescanImages(null);
 					} else {
 						DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
@@ -242,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 					pref.edit()
 					    .putString("dirUri", dirUri.toString())
 					    .apply();
-					if (!isCustomScan) {
+					if (!isCustomScan.get()) {
 						rescanImages(null);
 					}
 				}
@@ -263,7 +264,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		DrawerLayout drawer = findViewById(R.id.drawer_layout);
 		if (drawer.isDrawerOpen(GravityCompat.START)) {
 			drawer.closeDrawer(GravityCompat.START);
-		} else if (asyncTask != null && !asyncTask.getStatus().equals(AsyncTask.Status.FINISHED)) {
+		} else if (isAsyncTaskRunning.get()) {
 			moveTaskToBack(true);
 		} else {
 			super.onBackPressed();
@@ -273,21 +274,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.gallery_toolbar_menu, menu);
-		menu.findItem(R.id.action_back).setVisible(isCustomScan);
+		menu.findItem(R.id.action_back).setVisible(isCustomScan.get());
+		menu.findItem(R.id.action_cancel).setVisible(isAsyncTaskRunning.get());
 		return true;
 	}
 
 	@Override
-	public boolean onPrepareOptionsMenu(Menu menu) {
-		return asyncTask == null || asyncTask.getStatus().equals(AsyncTask.Status.FINISHED);
-	}
-
-	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
-		if (item.getItemId() == R.id.action_back) {
-			isCustomScan = false;
-			rescanImages(null);
-			return true;
+		switch (item.getItemId()) {
+			case R.id.action_back:
+				isCustomScan.compareAndSet(true, false);
+				rescanImages(null);
+				return true;
+			case R.id.action_cancel:
+				asyncTask.cancel(true);
+				return true;
 		}
 		return super.onOptionsItemSelected(item);
 	}

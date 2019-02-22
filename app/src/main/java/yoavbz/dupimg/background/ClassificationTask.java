@@ -1,6 +1,8 @@
 package yoavbz.dupimg.background;
 
 import android.animation.ObjectAnimator;
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -14,8 +16,12 @@ import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
+import at.wirecube.additiveanimations.additive_animator.AdditiveAnimator;
+import at.wirecube.additiveanimations.additive_animator.AnimationEndListener;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.ImageClassifier;
@@ -28,16 +34,22 @@ import yoavbz.dupimg.models.Image;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+@SuppressLint("DefaultLocale")
 public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>>> {
 
-	private static final int NOTIFICATION_ID = 1;
+	private final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
 	private Notification.Builder mBuilder;
 	private JobInfo job;
 	private JobScheduler scheduler;
+	private AtomicBoolean isPreviewing = new AtomicBoolean(false);
+	private AdditiveAnimator animation;
+	private int scanned = 0;
+	private int total;
 
 	public ClassificationTask(MainActivity mainActivity) {
 		weakReference = new WeakReference<>(mainActivity);
@@ -48,32 +60,36 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			Log.d(MainActivity.TAG, "ClassificationTask: Starting image classification asynchronously..");
+			// Handling menu items
+			activity.isAsyncTaskRunning.compareAndSet(false, true);
+			activity.invalidateOptionsMenu();
 
-			scheduler = (JobScheduler) activity.getSystemService(Context.JOB_SCHEDULER_SERVICE);
 			// Stopping JobScheduler while classifying
+			scheduler = activity.getSystemService(JobScheduler.class);
 			job = scheduler.getPendingJob(MainActivity.JOB_ID);
 			if (job != null) {
 				scheduler.cancel(MainActivity.JOB_ID);
 			}
+			// Modifying views visibility
 			activity.galleryView.setVisibility(View.GONE);
 			activity.progressBar.setVisibility(View.VISIBLE);
 			activity.textView.setVisibility(View.VISIBLE);
-			activity.invalidateOptionsMenu();
-			setNotificationChannel(activity);
-			mBuilder = new Notification.Builder(activity, "dupImg")
-					.setSmallIcon(R.drawable.ic_gallery)
-					.setContentTitle("Scanning images..")
-					.setOngoing(true);
-			activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
+
+			initNotification(activity);
 		}
 	}
 
-	private void setNotificationChannel(MainActivity activity) {
+	private void initNotification(@NonNull MainActivity activity) {
 		NotificationChannel channel = new NotificationChannel("dupImg", "Scanning Progress",
 		                                                      NotificationManager.IMPORTANCE_MIN);
 		channel.enableLights(false);
 		channel.enableVibration(false);
 		activity.notificationManager.createNotificationChannel(channel);
+		mBuilder = new Notification.Builder(activity, "dupImg")
+				.setSmallIcon(R.drawable.ic_gallery)
+				.setContentTitle("Scanning images..")
+				.setOngoing(true);
+		activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 	}
 
 	/**
@@ -90,46 +106,59 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 			                                                      "labels.txt", 224)) {
 				ImageDatabase db = ImageDatabase.getAppDatabase(activity);
 
+				// TODO: Handle multiple directories (Uris)
+				// Checking scanning mode (regular/custom) and getting the dirUri
 				Uri dirUri = uris[0];
 				if (dirUri == null) {
-					activity.isCustomScan = false;
+					activity.isCustomScan.compareAndSet(true, false);
 					// In case no custom uri was delivered - use default value
 					String uriString = PreferenceManager.getDefaultSharedPreferences(activity)
 					                                    .getString("dirUri", null);
 					dirUri = Uri.parse(uriString);
 				} else {
-					activity.isCustomScan = true;
+					activity.isCustomScan.compareAndSet(false, true);
 				}
-				ArrayList<Uri> localImages = fetchLocalUris(activity, dirUri);
-				int size = localImages.size();
-				Log.d(MainActivity.TAG,
-				      "ClassificationTask: Found " + size + " images on " + dirUri.getPath());
 
+				// Fetching local images on dirUri
+				checkCancellation();
+				ArrayList<Uri> localImages = fetchLocalUris(activity, dirUri);
+				total = localImages.size();
+				Log.d(MainActivity.TAG, "ClassificationTask: Found " + total + " images on " + dirUri.getPath());
+
+				// Updating ProgressBars
+				checkCancellation();
 				activity.runOnUiThread(() -> {
-					activity.textView.setText("Scanning " + size + " files..");
+					activity.textView.setText(String.format("Scanning %d images..", total));
 					activity.progressBar.setIndeterminate(false);
 					activity.progressBar.setProgress(0);
-					activity.progressBar.setMax(localImages.size() * 2);
+					activity.progressBar.setMax(localImages.size());
 					mBuilder.setProgress(activity.progressBar.getMax(),
 					                     activity.progressBar.getProgress(), false);
 				});
 
+				// Initiating clusterer and list of images to scan
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
-				List<Image> toClusters;
+				List<Image> imagesToClusters;
+				checkCancellation();
 
-				if (!activity.isCustomScan) {
+				// Processing images according to scanning mode
+				if (!activity.isCustomScan.get()) {
 					// Regular Scan
-					// Removing from the database images that were deleted from local directory
+
+					// Removing (from DB) images that were deleted from local directory
 					db.imageDao().deleteNotInList(localImages);
+
+					// Inserting new images to the DB
 					List<Image> newImages = getNewImages(activity, db.imageDao(), classifier, localImages);
 					if (!newImages.isEmpty()) {
-						Log.d(MainActivity.TAG,
-						      "ClassificationTask: Inserting " + newImages.size() + " images to DB");
+						Log.d(MainActivity.TAG, "ClassificationTask: Inserting " + newImages.size() + " images to DB");
 						db.imageDao().insert(newImages);
 					} else {
 						Log.d(MainActivity.TAG, "ClassificationTask: No new images..");
 					}
-					// Animating ProgressBars
+
+					// Finishing scan, animating ProgressBars
+					checkCancellation();
 					activity.runOnUiThread(() -> {
 						ObjectAnimator.ofInt(activity.progressBar, "progress",
 						                     activity.progressBar.getMax())
@@ -138,21 +167,29 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 						mBuilder.setProgress(0, 0, true);
 						activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 					});
-					toClusters = db.imageDao().getAll();
+					imagesToClusters = db.imageDao().getAll();
 				} else {
 					// Custom scan
-					toClusters = new ArrayList<>();
+
+					// Iterating local images
+					imagesToClusters = new ArrayList<>();
 					for (Uri uri : localImages) {
-						if (!isCancelled()) {
-							toClusters.add(new Image(uri, activity, classifier));
-						}
+						checkCancellation();
+						Image image = new Image(uri, activity, classifier);
+						imagesToClusters.add(image);
+						animatePreview(activity, image);
 						publishProgress();
 					}
 				}
-				List<Cluster<Image>> clusters = clusterer.cluster(toClusters);
+				checkCancellation();
+
+				// Clustering!
+				List<Cluster<Image>> clusters = clusterer.cluster(imagesToClusters);
+
 				// Sorting images in each cluster
 				Comparator<Image> imageComparator = (image1, image2) ->
-						image1.getDateTaken(activity).compareTo(image2.getDateTaken(activity));
+						// Comparing using getDateTaken(activity), to extract date from files if needed
+						Long.compare(image1.getDateTaken(activity), (image2.getDateTaken(activity)));
 				for (Cluster<Image> cluster : clusters) {
 					cluster.getPoints().sort(imageComparator);
 				}
@@ -163,6 +200,45 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 			}
 		}
 		return new ArrayList<>();
+	}
+
+	/**
+	 * Iteratively animating a preview image while scanning
+	 *
+	 * @param activity The activity {@link MainActivity}
+	 * @param image    The {@link Image} to preview
+	 */
+	private void animatePreview(@NonNull Activity activity, Image image) {
+		if (!isPreviewing.get()) {
+			isPreviewing.compareAndSet(false, true);
+			ImageView preview = activity.findViewById(R.id.preview);
+			ConstraintLayout layout = (ConstraintLayout) preview.getParent();
+			activity.runOnUiThread(() -> {
+				preview.setImageBitmap(image.getOrientedBitmap(activity));
+				preview.setVisibility(View.VISIBLE);
+				float originalX = preview.getX();
+				animation = AdditiveAnimator.animate(preview)
+				                            // Alpha
+				                            .alpha(1f)
+				                            .setDuration(1000L)
+				                            .thenBeforeEnd(1000L)
+				                            // X transitioning
+				                            .xBy(-(layout.getWidth() - preview.getWidth()) * 0.5f)
+				                            .setDuration(1700L)
+				                            .thenBeforeEnd(600L)
+				                            // Alpha
+				                            .alpha(0f)
+				                            .setDuration(600L)
+				                            .addEndAction(new AnimationEndListener() {
+					                            @Override
+					                            public void onAnimationEnd(boolean wasCancelled) {
+						                            preview.setX(originalX);
+						                            isPreviewing.compareAndSet(true, false);
+					                            }
+				                            });
+				animation.start();
+			});
+		}
 	}
 
 	static ArrayList<Uri> fetchLocalUris(@NonNull Context context, Uri dir) {
@@ -184,15 +260,22 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		return uris;
 	}
 
-	private List<Image> getNewImages(Context context, @NonNull ImageDao dao, ImageClassifier classifier,
+	private List<Image> getNewImages(Activity activity, @NonNull ImageDao dao, ImageClassifier classifier,
 	                                 @NonNull List<Uri> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
+		checkCancellation();
 		localImages.removeAll(dao.getAllUris());
+		// Deciding whether to show preview image or not
+		boolean shouldAnimatePreview = localImages.size() > 5;
 		for (Uri uri : localImages) {
+			checkCancellation();
 			try {
-				Image image = new Image(uri, context, classifier);
+				Image image = new Image(uri, activity, classifier);
 				newImages.add(image);
+				if (shouldAnimatePreview) {
+					animatePreview(activity, image);
+				}
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "getNewImages: ", e);
 			}
@@ -206,6 +289,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.progressBar.incrementProgressBy(1);
+			activity.textView.setText(String.format("Scanned %d/%d images..", ++scanned, total));
 			mBuilder.setProgress(activity.progressBar.getMax(), activity.progressBar.getProgress(), false);
 			activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 		}
@@ -216,12 +300,18 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		Log.d(MainActivity.TAG, "ClassificationTask: Clustered " + clusters.size() + " clusters");
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
+			activity.isAsyncTaskRunning.compareAndSet(true, false);
+			// Hide preview
+			if (animation != null) {
+				activity.findViewById(R.id.preview).setVisibility(View.GONE);
+				animation.cancelAllAnimations();
+			}
 			activity.notificationManager.cancel(NOTIFICATION_ID);
 			// Sorting clusters by date
 			clusters.sort((Cluster<Image> cluster1, Cluster<Image> cluster2) -> {
-				Date date1 = cluster1.getPoints().get(0).getDateTaken();
-				Date date2 = cluster2.getPoints().get(0).getDateTaken();
-				return date2.compareTo(date1);
+				long date1 = cluster1.getPoints().get(0).getDateTaken();
+				long date2 = cluster2.getPoints().get(0).getDateTaken();
+				return Long.compare(date2, date1);
 			});
 			activity.galleryView.setImageClusters(clusters);
 			activity.progressBar.setVisibility(View.GONE);
@@ -233,16 +323,29 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		}
 	}
 
+	private void checkCancellation() {
+		if (isCancelled()) {
+			throw new CancellationException();
+		}
+	}
+
 	@Override
 	protected void onCancelled() {
 		Log.d(MainActivity.TAG, "ClassificationTask - onCancelled: Cancelling task");
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
+			// Handling menu items
+			activity.isAsyncTaskRunning.compareAndSet(true, false);
+			activity.invalidateOptionsMenu();
+			// Hiding preview
+			if (animation != null) {
+				activity.findViewById(R.id.preview).setVisibility(View.GONE);
+				animation.cancelAllAnimations();
+			}
 			activity.notificationManager.cancel(NOTIFICATION_ID);
 			activity.textView.setText(activity.getString(R.string.got_an_error));
 			activity.textView.setVisibility(View.VISIBLE);
 			activity.progressBar.setVisibility(View.GONE);
-			activity.invalidateOptionsMenu();
 		}
 	}
 }
