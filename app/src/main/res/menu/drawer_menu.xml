@@ -5,7 +5,7 @@
 		tools:showIn="navigation_view">
 
 	<group android:id="@+id/group1">
-		<item android:id="@+id/change_default_dir"
+		<item android:id="@+id/change_default_dirs"
 				android:icon="@drawable/ic_gallery"
 				android:title="Change default directory"/>
 		<item android:id="@+id/custom_dir"

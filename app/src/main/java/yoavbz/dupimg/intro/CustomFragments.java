@@ -1,6 +1,6 @@
 package yoavbz.dupimg.intro;
 
-import android.content.Intent;
+import android.app.AlertDialog;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -23,11 +23,32 @@ import com.airbnb.lottie.LottieDrawable;
 import com.github.paolorotolo.appintro.AppIntroBaseFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
 import yoavbz.dupimg.R;
+import yoavbz.dupimg.utils.Directory;
+import yoavbz.dupimg.utils.DirectoryTreeView;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @SuppressWarnings("ConstantConditions")
 class CustomFragments {
 
 	public static class PermissionFragment extends AppIntroBaseFragment {
+
+		public static PermissionFragment newInstance(SliderPage sliderPage) {
+			PermissionFragment slide = new PermissionFragment();
+			Bundle args = new Bundle();
+			args.putString(ARG_TITLE, sliderPage.getTitleString());
+			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
+			args.putString(ARG_DESC, sliderPage.getDescriptionString());
+			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
+			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
+			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
+			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
+			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
+			slide.setArguments(args);
+
+			return slide;
+		}
 
 		@Nullable
 		@Override
@@ -70,22 +91,6 @@ class CustomFragments {
 			return view;
 		}
 
-		public static PermissionFragment newInstance(SliderPage sliderPage) {
-			PermissionFragment slide = new PermissionFragment();
-			Bundle args = new Bundle();
-			args.putString(ARG_TITLE, sliderPage.getTitleString());
-			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
-			args.putString(ARG_DESC, sliderPage.getDescriptionString());
-			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
-			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
-			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
-			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
-			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
-			slide.setArguments(args);
-
-			return slide;
-		}
-
 		@Override
 		protected int getLayoutId() {
 			return com.github.paolorotolo.appintro.R.layout.fragment_intro;
@@ -93,29 +98,6 @@ class CustomFragments {
 	}
 
 	public static class SelectDirFragment extends AppIntroBaseFragment {
-
-		@Nullable
-		@Override
-		public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-		                         @Nullable Bundle savedInstanceState) {
-			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
-
-			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
-			desc.setTextSize(20f);
-
-			Button selectDirButton = new Button(getContext());
-			selectDirButton.setText("Select directory");
-			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(700, 190);
-			lp.gravity = Gravity.CENTER;
-			selectDirButton.setLayoutParams(lp);
-			selectDirButton.setOnClickListener(v -> {
-				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-				intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
-				startActivityForResult(intent, 1234);
-			});
-			view.addView(selectDirButton);
-			return view;
-		}
 
 		public static SelectDirFragment newInstance(SliderPage sliderPage) {
 			SelectDirFragment slide = new SelectDirFragment();
@@ -133,6 +115,46 @@ class CustomFragments {
 			return slide;
 		}
 
+		@Nullable
+		@Override
+		public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+		                         @Nullable Bundle savedInstanceState) {
+			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
+
+			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
+			desc.setTextSize(20f);
+
+			Button selectDirButton = new Button(getContext());
+			selectDirButton.setText("Select directories");
+			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(700, 190);
+			lp.gravity = Gravity.CENTER;
+			selectDirButton.setLayoutParams(lp);
+			selectDirButton.setOnClickListener(v -> {
+				DirectoryTreeView dirTreeView = new DirectoryTreeView(getContext());
+				Set<String> selectedDirs = new HashSet<>();
+				dirTreeView.setOnDirStateChangeListener((dir, state) -> {
+					if (state == Directory.DirState.FULL) {
+						selectedDirs.add(dir.getFile().getPath());
+					} else if (state == Directory.DirState.NONE) {
+						selectedDirs.remove(dir.getFile().getPath());
+					}
+				});
+				new AlertDialog.Builder(getContext())
+						.setTitle("Select directories to scan:")
+						.setView(dirTreeView)
+						.setPositiveButton("OK", (dialog, which) -> {
+							((IntroActivity) getActivity()).getPager().goToNextSlide();
+							PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
+							                 .putStringSet("dirs", selectedDirs)
+							                 .apply();
+						})
+						.setNegativeButton("Cancel", null)
+						.show();
+			});
+			view.addView(selectDirButton);
+			return view;
+		}
+
 		@Override
 		protected int getLayoutId() {
 			return com.github.paolorotolo.appintro.R.layout.fragment_intro;
@@ -141,6 +163,22 @@ class CustomFragments {
 	}
 
 	public static class BackgroundMonitorFragment extends AppIntroBaseFragment {
+
+		public static BackgroundMonitorFragment newInstance(SliderPage sliderPage) {
+			BackgroundMonitorFragment slide = new BackgroundMonitorFragment();
+			Bundle args = new Bundle();
+			args.putString(ARG_TITLE, sliderPage.getTitleString());
+			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
+			args.putString(ARG_DESC, sliderPage.getDescriptionString());
+			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
+			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
+			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
+			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
+			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
+			slide.setArguments(args);
+
+			return slide;
+		}
 
 		@Nullable
 		@Override
@@ -166,22 +204,6 @@ class CustomFragments {
 			return view;
 		}
 
-		public static BackgroundMonitorFragment newInstance(SliderPage sliderPage) {
-			BackgroundMonitorFragment slide = new BackgroundMonitorFragment();
-			Bundle args = new Bundle();
-			args.putString(ARG_TITLE, sliderPage.getTitleString());
-			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
-			args.putString(ARG_DESC, sliderPage.getDescriptionString());
-			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
-			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
-			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
-			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
-			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
-			slide.setArguments(args);
-
-			return slide;
-		}
-
 		@Override
 		protected int getLayoutId() {
 			return com.github.paolorotolo.appintro.R.layout.fragment_intro;
@@ -197,6 +219,24 @@ class CustomFragments {
 		private int animationId;
 		private LottieAnimationView animationView;
 		private float descSize;
+
+		public static AnimatedFragment newInstance(@NonNull AnimatedSliderPage sliderPage) {
+			AnimatedFragment fragment = new AnimatedFragment();
+			Bundle args = new Bundle();
+			args.putString(ARG_TITLE, sliderPage.getTitleString());
+			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
+			args.putString(ARG_DESC, sliderPage.getDescriptionString());
+			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
+			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
+			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
+			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
+			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
+			args.putFloat(ARG_DESC_SIZE, sliderPage.getDescSize());
+			args.putInt(ARG_ANIMATION, sliderPage.getAnimationId());
+			fragment.setArguments(args);
+
+			return fragment;
+		}
 
 		@Override
 		public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -260,24 +300,6 @@ class CustomFragments {
 		@Override
 		protected int getLayoutId() {
 			return com.github.paolorotolo.appintro.R.layout.fragment_intro;
-		}
-
-		public static AnimatedFragment newInstance(@NonNull AnimatedSliderPage sliderPage) {
-			AnimatedFragment fragment = new AnimatedFragment();
-			Bundle args = new Bundle();
-			args.putString(ARG_TITLE, sliderPage.getTitleString());
-			args.putString(ARG_TITLE_TYPEFACE, sliderPage.getTitleTypeface());
-			args.putString(ARG_DESC, sliderPage.getDescriptionString());
-			args.putString(ARG_DESC_TYPEFACE, sliderPage.getDescTypeface());
-			args.putInt(ARG_DRAWABLE, sliderPage.getImageDrawable());
-			args.putInt(ARG_BG_COLOR, sliderPage.getBgColor());
-			args.putInt(ARG_TITLE_COLOR, sliderPage.getTitleColor());
-			args.putInt(ARG_DESC_COLOR, sliderPage.getDescColor());
-			args.putFloat(ARG_DESC_SIZE, sliderPage.getDescSize());
-			args.putInt(ARG_ANIMATION, sliderPage.getAnimationId());
-			fragment.setArguments(args);
-
-			return fragment;
 		}
 	}
 }

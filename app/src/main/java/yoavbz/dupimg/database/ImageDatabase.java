@@ -2,7 +2,6 @@ package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
 import android.content.Context;
-import android.net.Uri;
 import yoavbz.dupimg.models.Image;
 
 import java.util.Arrays;
@@ -26,16 +25,6 @@ public abstract class ImageDatabase extends RoomDatabase {
 
 	@SuppressWarnings("WeakerAccess")
 	static class Converters {
-
-		@TypeConverter
-		public static String uriToString(Uri uri) {
-			return uri.toString();
-		}
-
-		@TypeConverter
-		public static Uri stringToUri(String uri) {
-			return Uri.parse(uri);
-		}
 
 		@TypeConverter
 		public static String doubleArrayToString(double[] point) {

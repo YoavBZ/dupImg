@@ -54,7 +54,7 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 		holder.firstImage = images.get(0);
 		// Setting cluster size
 		Glide.with(context)
-		     .load(holder.firstImage.getUri())
+		     .load(holder.firstImage.getPath())
 		     .apply(new RequestOptions()
 				            .placeholder(imgPlaceHolderResId)
 				            // Saving original image to cache for future loadings

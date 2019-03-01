@@ -1,7 +1,6 @@
 package yoavbz.dupimg.gallery;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
@@ -109,10 +108,10 @@ public class ImageClusterActivity extends AppCompatActivity
 								image.delete(this);
 							}
 							Intent data = new Intent();
-							data.putParcelableArrayListExtra("deleted",
-							                                 (ArrayList<Uri>) toDelete.stream()
-							                                                          .map(Image::getUri)
-							                                                          .collect(Collectors.toList()));
+							data.putStringArrayListExtra("deleted",
+							                             (ArrayList<String>) toDelete.stream()
+							                                                         .map(Image::getPath)
+							                                                         .collect(Collectors.toList()));
 							setResult(RESULT_OK, data);
 							finish();
 						}).start();

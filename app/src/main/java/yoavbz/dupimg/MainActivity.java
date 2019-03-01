@@ -6,7 +6,6 @@ import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.*;
-import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -36,40 +35,42 @@ import yoavbz.dupimg.gallery.GalleryView;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.intro.IntroActivity;
 import yoavbz.dupimg.models.Image;
+import yoavbz.dupimg.utils.Directory;
+import yoavbz.dupimg.utils.DirectoryTreeView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
 		GalleryView.OnClusterClickListener {
 
+	// Constants
 	public static final String TAG = "dupImg";
-	private static final int SCANNING_NOTIFICATION_ID = 1;
 	public static final int JOB_ID = 1;
+	public static final String ACTION_UPDATE_UI = "yoavbz.dupimg.ACTION_UPDATE_UI";
+	private static final int SCANNING_NOTIFICATION_ID = 1;
 	private static final int IMAGE_CLUSTER_ACTIVITY_CODE = 0;
 	private static final int INTRO_ACTIVITY_CODE = 1;
-	private static final int CHANGE_DEFAULT_DIR_ACTIVITY_CODE = 2;
-	private static final int SCAN_CUSTOM_DIR_ACTIVITY_CODE = 3;
-	public static final String ACTION_UPDATE_UI = "yoavbz.dupimg.ACTION_UPDATE_UI";
-
-	private ClassificationTask asyncTask;
+	// AtomicBoolean for AsyncTask usage
 	public AtomicBoolean isAsyncTaskRunning = new AtomicBoolean(false);
-	public NotificationManager notificationManager;
-
+	public AtomicBoolean isCustomScan = new AtomicBoolean(false);
+	// Views
 	public GalleryView galleryView;
 	public TextView textView;
 	public ProgressBar progressBar;
-
-	public AtomicBoolean isCustomScan = new AtomicBoolean(false);
-
+	// Utility References
+	public NotificationManager notificationManager;
+	private ClassificationTask asyncTask;
 	private SharedPreferences pref;
 	private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			if (!isCustomScan.get() && ACTION_UPDATE_UI.equals(intent.getAction())) {
-				rescanImages(null);
+				rescanImages();
 			}
 		}
 	};
@@ -105,10 +106,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		super.onStop();
 	}
 
+	/**
+	 * In addition to the app destruction, cancels asyncTask if running and clears Glide disk cache
+	 */
 	@Override
 	protected void onDestroy() {
-		// Remove notification if asyncTask isn't done yet
 		if (asyncTask != null) {
+			// Remove notification if asyncTask isn't done yet
 			notificationManager.cancel(SCANNING_NOTIFICATION_ID);
 			asyncTask.cancel(true);
 		}
@@ -121,8 +125,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
 	/**
 	 * Handling the app initiation, after displaying the intro on first use:
-	 * * Regular UI initiation.
-	 * * Async images loading.
+	 * - Regular UI initiation.
+	 * - Async images classifying and clustering.
+	 * -
 	 */
 	@SuppressWarnings("ConstantConditions")
 	private void init() {
@@ -178,17 +183,18 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		textView = findViewById(R.id.content_text);
 		progressBar = findViewById(R.id.classification_progress);
 
-		rescanImages(null);
+		rescanImages();
+
 	}
 
 	/**
 	 * Scanning all images in the Camera directory, classifying and clustering them, and displaying them
 	 *
-	 * @param dir The {@link Uri} of the directory to scan, use null for default value
+	 * @param dirs The paths of the directories to scan
 	 */
-	private void rescanImages(Uri dir) {
+	private void rescanImages(@NonNull String... dirs) {
 		asyncTask = new ClassificationTask(this);
-		asyncTask.execute(dir);
+		asyncTask.execute(dirs);
 	}
 
 	@Override
@@ -217,13 +223,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 			case IMAGE_CLUSTER_ACTIVITY_CODE:
 				if (resultCode == RESULT_OK) {
 					if (!isCustomScan.get()) {
-						rescanImages(null);
+						rescanImages();
 					} else {
 						DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
 						List<Image> scannedImages = galleryView.getAllImages();
-						ArrayList<Uri> deleted = data.getParcelableArrayListExtra("deleted");
+						List<String> deleted = data.getStringArrayListExtra("deleted");
 						// Remove deleted images from galleryView
-						scannedImages.removeIf(img -> deleted.contains(img.getUri()));
+						scannedImages.removeIf(img -> {
+							for (String deletedName : deleted) {
+								if (deletedName.equals(img.getPath())) {
+									return true;
+								}
+							}
+							return false;
+						});
 						List<Cluster<Image>> clusters = clusterer.cluster(scannedImages);
 						galleryView.setImageClusters(clusters);
 					}
@@ -235,29 +248,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				} else {
 					finish();
 				}
-				break;
-			case CHANGE_DEFAULT_DIR_ACTIVITY_CODE:
-				if (resultCode == RESULT_OK && data != null && data.getData() != null) {
-					Uri dirUri = data.getData();
-					SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-					pref.edit()
-					    .putString("dirUri", dirUri.toString())
-					    .apply();
-					if (!isCustomScan.get()) {
-						rescanImages(null);
-					}
-				}
-				break;
-			case SCAN_CUSTOM_DIR_ACTIVITY_CODE:
-				if (resultCode == RESULT_OK && data != null && data.getData() != null) {
-					rescanImages(data.getData());
-				}
 		}
 	}
 
 	/**
-	 * When Back-key is being pressed, closing the drawer if opened, moving it to back if AsyncTask is running,
-	 * closing it otherwise.
+	 * When Back-key is being pressed, closes the drawer if opened, move app to back if AsyncTask is running,
+	 * close it otherwise.
 	 */
 	@Override
 	public void onBackPressed() {
@@ -271,6 +267,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		}
 	}
 
+	/**
+	 * This method sets the visibility for each {@link MenuItem} according to the app state
+	 *
+	 * @param menu The main menu
+	 * @return true to display this menu
+	 */
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.gallery_toolbar_menu, menu);
@@ -279,12 +281,23 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		return true;
 	}
 
+	/**
+	 * Listener that handles  item selection.
+	 * Menu items are:
+	 * change_default_dirs = Changing the default directories to scan, using DirectoryTreeView
+	 * custom_dir = Performing custom scan, using DirectoryTreeView to select dirs
+	 * nav_about = Displaying about dialog
+	 *
+	 * @param item The selected {@link MenuItem}
+	 * @return false to allow normal menu processing to proceed, true to consume it here.
+	 */
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 			case R.id.action_back:
+				asyncTask.cancel(true);
 				isCustomScan.compareAndSet(true, false);
-				rescanImages(null);
+				rescanImages();
 				return true;
 			case R.id.action_cancel:
 				asyncTask.cancel(true);
@@ -293,21 +306,61 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		return super.onOptionsItemSelected(item);
 	}
 
+	/**
+	 * Listener that handles {@link NavigationView} item selection.
+	 * Menu items are:
+	 * change_default_dirs = Changing the default directories to scan, using DirectoryTreeView
+	 * custom_dir = Performing custom scan, using DirectoryTreeView to select dirs
+	 * nav_about = Displaying about dialog
+	 *
+	 * @param item The selected {@link MenuItem}
+	 * @return true to display the item as selected
+	 */
 	@Override
 	public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 		// Handle navigation view item clicks here.
 		switch (item.getItemId()) {
-			case R.id.change_default_dir:
-				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-				intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
-				startActivityForResult(intent, CHANGE_DEFAULT_DIR_ACTIVITY_CODE);
+			case R.id.change_default_dirs:
+				// Changing the default directories to scan, using DirectoryTreeView
+				DirectoryTreeView dirTreeView = new DirectoryTreeView(this);
+				Set<String> selectedDirs = new HashSet<>();
+				dirTreeView.setOnDirStateChangeListener((dir, state) -> {
+					if (state == Directory.DirState.FULL) {
+						selectedDirs.add(dir.getFile().getPath());
+					} else if (state == Directory.DirState.NONE) {
+						selectedDirs.remove(dir.getFile().getPath());
+					}
+				});
+				new AlertDialog.Builder(this)
+						.setTitle("Select directories to scan:")
+						.setView(dirTreeView)
+						.setPositiveButton("OK", (dialog, which) ->
+								PreferenceManager.getDefaultSharedPreferences(this).edit()
+								                 .putStringSet("dirs", selectedDirs)
+								                 .apply())
+						.setNegativeButton("Cancel", null)
+						.show();
 				break;
 			case R.id.custom_dir:
-				intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-				intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
-				startActivityForResult(intent, SCAN_CUSTOM_DIR_ACTIVITY_CODE);
+				// Performing custom scan, using DirectoryTreeView to select dirs
+				dirTreeView = new DirectoryTreeView(this);
+				selectedDirs = new HashSet<>();
+				dirTreeView.setOnDirStateChangeListener((dir, state) -> {
+					if (state == Directory.DirState.FULL) {
+						selectedDirs.add(dir.getFile().getAbsolutePath());
+					} else if (state == Directory.DirState.NONE) {
+						selectedDirs.remove(dir.getFile().getAbsolutePath());
+					}
+				});
+				new AlertDialog.Builder(this)
+						.setTitle("Select directories to scan:")
+						.setView(dirTreeView)
+						.setPositiveButton("OK", (dialog, which) -> rescanImages(selectedDirs.toArray(new String[0])))
+						.setNegativeButton("Cancel", null)
+						.show();
 				break;
 			case R.id.nav_about:
+				// Displaying about dialog
 				final SpannableString message = new SpannableString(
 						"The app repository is available at:\nhttps://github.com/YoavBZ/dupImg\n\nHave fun!");
 				Linkify.addLinks(message, Linkify.WEB_URLS);

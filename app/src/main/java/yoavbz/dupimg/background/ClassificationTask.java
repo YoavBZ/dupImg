@@ -1,20 +1,14 @@
 package yoavbz.dupimg.background;
 
 import android.animation.ObjectAnimator;
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
-import android.provider.DocumentsContract;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.util.Log;
@@ -31,15 +25,15 @@ import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.models.Image;
 
+import java.io.File;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@SuppressLint("DefaultLocale")
-public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>>> {
+import static yoavbz.dupimg.MainActivity.TAG;
+
+public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Image>>> {
 
 	private final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
@@ -49,17 +43,29 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 	private AtomicBoolean isPreviewing = new AtomicBoolean(false);
 	private AdditiveAnimator animation;
 	private int scanned = 0;
-	private int total;
+	private int total = 0;
 
 	public ClassificationTask(MainActivity mainActivity) {
 		weakReference = new WeakReference<>(mainActivity);
+	}
+
+	static List<String> fetchLocalImages(@NonNull String... paths) {
+		List<String> localImages = new ArrayList<>();
+		for (String path : paths) {
+			File[] files = new File(path).listFiles((dir, name) -> name.endsWith("jpg"));
+			Log.d(TAG, "ClassificationTask: Found " + files.length + " images on " + path);
+			for (File file : files) {
+				localImages.add(file.getAbsolutePath());
+			}
+		}
+		return localImages;
 	}
 
 	@Override
 	protected void onPreExecute() {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
-			Log.d(MainActivity.TAG, "ClassificationTask: Starting image classification asynchronously..");
+			Log.d(TAG, "ClassificationTask: Starting image classification asynchronously..");
 			// Handling menu items
 			activity.isAsyncTaskRunning.compareAndSet(false, true);
 			activity.invalidateOptionsMenu();
@@ -95,43 +101,42 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 	/**
 	 * Iterating the given directory files, classifying them and clustering them into similarity clusters
 	 *
-	 * @param uris Contains directory uri to scan in case of a custom scan, null otherwise
+	 * @param paths Contains directory paths to scan in case of a custom scan, null otherwise
 	 * @return null
 	 */
 	@Override
-	protected List<Cluster<Image>> doInBackground(Uri... uris) {
+	protected List<Cluster<Image>> doInBackground(String... paths) {
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			try (ImageClassifier classifier = new ImageClassifier(activity, "mobilenet_v2_1.0_224_quant.tflite",
 			                                                      "labels.txt", 224)) {
 				ImageDatabase db = ImageDatabase.getAppDatabase(activity);
 
-				// TODO: Handle multiple directories (Uris)
-				// Checking scanning mode (regular/custom) and getting the dirUri
-				Uri dirUri = uris[0];
-				if (dirUri == null) {
+				// Checking scanning mode (regular/custom) and getting the dir paths
+				if (paths.length == 0) {
 					activity.isCustomScan.compareAndSet(true, false);
-					// In case no custom uri was delivered - use default value
-					String uriString = PreferenceManager.getDefaultSharedPreferences(activity)
-					                                    .getString("dirUri", null);
-					dirUri = Uri.parse(uriString);
+					// In case no custom path was delivered - use default value
+					Set<String> dirs = PreferenceManager.getDefaultSharedPreferences(activity)
+					                                    .getStringSet("dirs", Collections.emptySet());
+					paths = dirs.toArray(new String[0]);
 				} else {
 					activity.isCustomScan.compareAndSet(false, true);
 				}
 
-				// Fetching local images on dirUri
+				// Fetching local images on each dir selected
 				checkCancellation();
-				ArrayList<Uri> localImages = fetchLocalUris(activity, dirUri);
+				List<String> localImages = fetchLocalImages(paths);
 				total = localImages.size();
-				Log.d(MainActivity.TAG, "ClassificationTask: Found " + total + " images on " + dirUri.getPath());
 
 				// Updating ProgressBars
 				checkCancellation();
 				activity.runOnUiThread(() -> {
-					activity.textView.setText(String.format("Scanning %d images..", total));
+					String str = String.format(Locale.ENGLISH, "Scanning %d images..", total);
+					activity.textView.setText(str);
+					Log.d(TAG, "doInBackground: " + str);
 					activity.progressBar.setIndeterminate(false);
 					activity.progressBar.setProgress(0);
-					activity.progressBar.setMax(localImages.size());
+					activity.progressBar.setMax(total);
 					mBuilder.setProgress(activity.progressBar.getMax(),
 					                     activity.progressBar.getProgress(), false);
 				});
@@ -139,8 +144,8 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 				// Initiating clusterer and list of images to scan
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.65, 2);
 				List<Image> imagesToClusters;
-				checkCancellation();
 
+				checkCancellation();
 				// Processing images according to scanning mode
 				if (!activity.isCustomScan.get()) {
 					// Regular Scan
@@ -151,10 +156,10 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 					// Inserting new images to the DB
 					List<Image> newImages = getNewImages(activity, db.imageDao(), classifier, localImages);
 					if (!newImages.isEmpty()) {
-						Log.d(MainActivity.TAG, "ClassificationTask: Inserting " + newImages.size() + " images to DB");
+						Log.d(TAG, "ClassificationTask: Inserting " + newImages.size() + " images to DB");
 						db.imageDao().insert(newImages);
 					} else {
-						Log.d(MainActivity.TAG, "ClassificationTask: No new images..");
+						Log.d(TAG, "ClassificationTask: No new images..");
 					}
 
 					// Finishing scan, animating ProgressBars
@@ -173,9 +178,9 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 
 					// Iterating local images
 					imagesToClusters = new ArrayList<>();
-					for (Uri uri : localImages) {
+					for (String path : localImages) {
 						checkCancellation();
-						Image image = new Image(uri, activity, classifier);
+						Image image = new Image(path, activity, classifier);
 						imagesToClusters.add(image);
 						animatePreview(activity, image);
 						publishProgress();
@@ -195,7 +200,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 				}
 				return clusters;
 			} catch (Exception e) {
-				Log.e(MainActivity.TAG, "ClassificationTask: Got an exception", e);
+				Log.e(TAG, "ClassificationTask: Got an exception", e);
 				cancel(true);
 			}
 		}
@@ -214,9 +219,9 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 			ImageView preview = activity.findViewById(R.id.preview);
 			ConstraintLayout layout = (ConstraintLayout) preview.getParent();
 			activity.runOnUiThread(() -> {
-				preview.setImageBitmap(image.getOrientedBitmap(activity));
+				preview.setImageBitmap(image.getOrientedBitmap());
 				preview.setVisibility(View.VISIBLE);
-				float originalX = preview.getX();
+				float originalX = (layout.getWidth() - preview.getWidth()) * 0.75f;
 				animation = AdditiveAnimator.animate(preview)
 				                            // Alpha
 				                            .alpha(1f)
@@ -241,43 +246,24 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		}
 	}
 
-	static ArrayList<Uri> fetchLocalUris(@NonNull Context context, Uri dir) {
-		ContentResolver contentResolver = context.getContentResolver();
-		ArrayList<Uri> uris = new ArrayList<>();
-		Uri child = DocumentsContract.buildChildDocumentsUriUsingTree(dir, DocumentsContract.getTreeDocumentId(dir));
-
-		try (Cursor c = contentResolver.query(child, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-		                                                          DocumentsContract.Document.COLUMN_MIME_TYPE},
-		                                      null, null, null)) {
-			while (c.moveToNext()) {
-				final String id = c.getString(0);
-				final String mime = c.getString(1);
-				if ("image/jpeg".equals(mime)) {
-					uris.add(DocumentsContract.buildDocumentUriUsingTree(dir, id));
-				}
-			}
-		}
-		return uris;
-	}
-
 	private List<Image> getNewImages(Activity activity, @NonNull ImageDao dao, ImageClassifier classifier,
-	                                 @NonNull List<Uri> localImages) {
+	                                 @NonNull List<String> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
 		checkCancellation();
-		localImages.removeAll(dao.getAllUris());
+		localImages.removeAll(dao.getAllPaths());
 		// Deciding whether to show preview image or not
 		boolean shouldAnimatePreview = localImages.size() > 5;
-		for (Uri uri : localImages) {
+		for (String path : localImages) {
 			checkCancellation();
 			try {
-				Image image = new Image(uri, activity, classifier);
+				Image image = new Image(path, activity, classifier);
 				newImages.add(image);
 				if (shouldAnimatePreview) {
 					animatePreview(activity, image);
 				}
 			} catch (Exception e) {
-				Log.e(MainActivity.TAG, "getNewImages: ", e);
+				Log.e(TAG, "getNewImages: ", e);
 			}
 			publishProgress();
 		}
@@ -289,7 +275,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.progressBar.incrementProgressBy(1);
-			activity.textView.setText(String.format("Scanned %d/%d images..", ++scanned, total));
+			activity.textView.setText(String.format(Locale.ENGLISH, "Scanned %d/%d images..", ++scanned, total));
 			mBuilder.setProgress(activity.progressBar.getMax(), activity.progressBar.getProgress(), false);
 			activity.notificationManager.notify(NOTIFICATION_ID, mBuilder.build());
 		}
@@ -297,7 +283,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 
 	@Override
 	protected void onPostExecute(List<Cluster<Image>> clusters) {
-		Log.d(MainActivity.TAG, "ClassificationTask: Clustered " + clusters.size() + " clusters");
+		Log.d(TAG, "ClassificationTask: Clustered " + clusters.size() + " clusters");
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			activity.isAsyncTaskRunning.compareAndSet(true, false);
@@ -331,7 +317,7 @@ public class ClassificationTask extends AsyncTask<Uri, Void, List<Cluster<Image>
 
 	@Override
 	protected void onCancelled() {
-		Log.d(MainActivity.TAG, "ClassificationTask - onCancelled: Cancelling task");
+		Log.d(TAG, "ClassificationTask - onCancelled: Cancelling task");
 		MainActivity activity = weakReference.get();
 		if (activity != null) {
 			// Handling menu items

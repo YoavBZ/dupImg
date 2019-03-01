@@ -1,7 +1,6 @@
 package yoavbz.dupimg.database;
 
 import android.arch.persistence.room.*;
-import android.net.Uri;
 import yoavbz.dupimg.models.Image;
 
 import java.util.List;
@@ -15,8 +14,8 @@ public abstract class ImageDao {
 	@Delete
 	public abstract void delete(Image image);
 
-	@Query("DELETE FROM images WHERE uri = :uri")
-	public abstract void delete(Uri uri);
+	@Query("DELETE FROM images WHERE path = :path")
+	public abstract void delete(String path);
 
 	@Update
 	public abstract void update(Image image);
@@ -25,17 +24,17 @@ public abstract class ImageDao {
 	public abstract List<Image> getAll();
 
 	@Transaction
-	public boolean deleteNotInList(List<Uri> localImages) {
+	public boolean deleteNotInList(List<String> localImages) {
 		boolean deleted = false;
-		for (Uri uri : getAllUris()) {
-			if (!localImages.contains(uri)) {
-				delete(uri);
+		for (String path : getAllPaths()) {
+			if (!localImages.contains(path)) {
+				delete(path);
 				deleted = true;
 			}
 		}
 		return deleted;
 	}
 
-	@Query("SELECT uri FROM images ORDER BY dateTaken DESC")
-	public abstract List<Uri> getAllUris();
+	@Query("SELECT path FROM images ORDER BY dateTaken DESC")
+	public abstract List<String> getAllPaths();
 }

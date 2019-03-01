@@ -76,7 +76,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 			// Starting transition when loading is finished (happens only once for first cluster image)
 			photoView.setTransitionName(transition);
 			Glide.with(activity)
-			     .load(image.getUri())
+			     .load(image.getPath())
 			     .apply(RequestOptions.noAnimation())
 			     .listener(new RequestListener<Drawable>() {
 				     @Override
@@ -98,7 +98,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 		} else {
 			// Default image loading
 			Glide.with(activity)
-			     .load(image.getUri())
+			     .load(image.getPath())
 			     .into(photoView);
 		}
 		// Setting OnPhotoTapListener to show/hide the imagesHorizontalList

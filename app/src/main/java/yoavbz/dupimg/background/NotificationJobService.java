@@ -7,7 +7,6 @@ import android.app.job.JobParameters;
 import android.app.job.JobService;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -25,7 +24,9 @@ import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public class NotificationJobService extends JobService {
 
@@ -46,7 +47,7 @@ public class NotificationJobService extends JobService {
 
 				db = ImageDatabase.getAppDatabase(NotificationJobService.this).imageDao();
 				// Fetching all the images from the camera directory
-				List<Uri> localImages = getLocalImages();
+				List<String> localImages = getLocalImages();
 				// Removing from the database images that were deleted from local directory
 				boolean deletedImages = db.deleteNotInList(localImages);
 				if (deletedImages) {
@@ -92,13 +93,13 @@ public class NotificationJobService extends JobService {
 		return true;
 	}
 
-	private List<Image> getNewImages(@NonNull List<Uri> localImages, ImageClassifier classifier) {
+	private List<Image> getNewImages(@NonNull List<String> localImages, ImageClassifier classifier) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
-		localImages.removeAll(db.getAllUris());
-		for (Uri uri : localImages) {
+		localImages.removeAll(db.getAllPaths());
+		for (String path : localImages) {
 			try {
-				Image image = new Image(uri, this, classifier);
+				Image image = new Image(path, this, classifier);
 				newImages.add(image);
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "getNewImages: ", e);
@@ -107,10 +108,10 @@ public class NotificationJobService extends JobService {
 		return newImages;
 	}
 
-	private List<Uri> getLocalImages() {
-		String uriString = PreferenceManager.getDefaultSharedPreferences(this)
-		                                    .getString("dirUri", null);
-		return ClassificationTask.fetchLocalUris(NotificationJobService.this, Uri.parse(uriString));
+	private List<String> getLocalImages() {
+		Set dirs = PreferenceManager.getDefaultSharedPreferences(this)
+		                            .getStringSet("dirs", Collections.emptySet());
+		return ClassificationTask.fetchLocalImages((String[]) dirs.toArray(new String[0]));
 	}
 
 	private void processClusters(@NonNull List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
@@ -121,7 +122,7 @@ public class NotificationJobService extends JobService {
 			int id = (int) SystemClock.uptimeMillis();
 			PendingIntent pendingIntent = PendingIntent.getActivity(this, id, intent, PendingIntent.FLAG_ONE_SHOT);
 			Image previewImg = images.get(0);
-			Bitmap rotatedPreviewImg = previewImg.getOrientedBitmap(this);
+			Bitmap rotatedPreviewImg = previewImg.getOrientedBitmap();
 			builder.setContentIntent(pendingIntent)
 			       .setContentTitle("Found " + images.size() + " new duplicates!")
 			       .setLargeIcon(rotatedPreviewImg)

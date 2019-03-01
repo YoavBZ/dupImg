@@ -1,10 +1,8 @@
 package yoavbz.dupimg.intro;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -85,7 +83,8 @@ public class IntroActivity extends AppIntro {
 
 		showSkipButton(false);
 		askForPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
-		                               Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_FRAGMENT_INDEX);
+		                               Manifest.permission.WRITE_EXTERNAL_STORAGE},
+		                  PERMISSION_FRAGMENT_INDEX);
 		showSeparator(true);
 		setGoBackLock(true);
 		setFadeAnimation();
@@ -113,18 +112,6 @@ public class IntroActivity extends AppIntro {
 				finish();
 				return;
 			}
-		}
-	}
-
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		super.onActivityResult(requestCode, resultCode, data);
-		if (resultCode == RESULT_OK) {
-			Uri uri = data.getData();
-			PreferenceManager.getDefaultSharedPreferences(this).edit()
-			                 .putString("dirUri", uri.toString())
-			                 .apply();
-			pager.goToNextSlide();
 		}
 	}
 }

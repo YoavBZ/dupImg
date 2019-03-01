@@ -55,7 +55,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		holder.image = images.get(position);
 
 		Glide.with(activity)
-		     .load(holder.image.getUri())
+		     .load(holder.image.getPath())
 		     .apply(new RequestOptions().placeholder(R.drawable.gallery_placeholder))
 		     .into(holder.thumbnail);
 
@@ -85,7 +85,6 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 		ImageView thumbnail;
 		CheckBox checkbox;
-		String filename;
 		Image image;
 
 		ViewHolder(View layout) {
@@ -95,7 +94,6 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		}
 
 		void updateViews() {
-			filename = image.toString();
 			// Set checkbox state according to selection
 			checkbox.setChecked(toDelete.contains(image));
 		}
