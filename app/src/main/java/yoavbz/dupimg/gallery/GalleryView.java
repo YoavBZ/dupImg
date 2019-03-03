@@ -32,11 +32,13 @@ public class GalleryView extends RecyclerView {
 
 	private final MainActivity activity;
 	private GridImagesAdapter mAdapter;
-	private ArrayList<Cluster<Image>> imageClusters;
+	private ArrayList<Cluster<Image>> imageClusters = new ArrayList<>();
 	private Drawable mPlaceHolder;
 	// Scaling
 	private ScaleGestureDetector scaleDetector;
-	private TransitionSet transition;
+	private TransitionSet transition = new TransitionSet()
+			.addTransition(new ChangeBounds())
+			.addTransition(new Fade(Fade.IN));
 
 	/**
 	 * Instantiates a new Media gallery view.
@@ -62,9 +64,6 @@ public class GalleryView extends RecyclerView {
 		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.GalleryView, 0, 0);
 		setSpanCount(2);
 		mPlaceHolder = a.getDrawable(R.styleable.GalleryView_place_holder);
-		transition = new TransitionSet()
-				.addTransition(new ChangeBounds())
-				.addTransition(new Fade(Fade.IN));
 		initScaling();
 	}
 
@@ -86,13 +85,12 @@ public class GalleryView extends RecyclerView {
 				int spanCount = ((GridLayoutManager) getLayoutManager()).getSpanCount();
 				if (measureScale(detector)) {
 					float scaleFactor = detector.getScaleFactor();
-					if (scaleFactor > 1f && spanCount > 1) {
+					if (scaleFactor > 1f && spanCount == 2) {
 						setSpanCount(spanCount - 1);
-						initialSpan = detector.getCurrentSpan();
-					} else if (scaleFactor < 1f && spanCount < 3) {
+					} else if (scaleFactor < 1f && spanCount == 1) {
 						setSpanCount(spanCount + 1);
-						initialSpan = detector.getCurrentSpan();
 					}
+					initialSpan = detector.getCurrentSpan();
 				}
 				return true;
 			}
@@ -108,7 +106,6 @@ public class GalleryView extends RecyclerView {
 	 * Init.
 	 */
 	public void initAdapter() {
-		imageClusters = new ArrayList<>();
 		mAdapter = new GridImagesAdapter(activity, imageClusters, mPlaceHolder);
 		setAdapter(mAdapter);
 	}

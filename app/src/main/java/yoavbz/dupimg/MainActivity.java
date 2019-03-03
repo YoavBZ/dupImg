@@ -95,9 +95,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	@Override
 	protected void onStart() {
 		super.onStart();
-		// Registering BroadcastReceiver
-		IntentFilter intentFilter = new IntentFilter(ACTION_UPDATE_UI);
-		LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter);
+		LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, new IntentFilter(ACTION_UPDATE_UI));
 	}
 
 	@Override
@@ -127,7 +125,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	 * Handling the app initiation, after displaying the intro on first use:
 	 * - Regular UI initiation.
 	 * - Async images classifying and clustering.
-	 * -
 	 */
 	@SuppressWarnings("ConstantConditions")
 	private void init() {
@@ -197,16 +194,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		asyncTask.execute(dirs);
 	}
 
+	/**
+	 * @param cluster          The image list of the clicked cluster
+	 * @param clusterThumbnail The thumbnail of the clicked cluster
+	 */
 	@Override
-	public void onClusterClick(List<Image> cluster, ImageView thumbnail) {
+	public void onClusterClick(List<Image> cluster, ImageView clusterThumbnail) {
 		// Starting ImageClusterActivity with correct parameters
 		Intent intent = new Intent(this, ImageClusterActivity.class);
 		intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) cluster);
 		// Handling transition animation
-		intent.putExtra("transition", String.valueOf(thumbnail.getId()));
-		thumbnail.setTransitionName(String.valueOf(thumbnail.getId()));
-		ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(this, thumbnail,
-		                                                                       String.valueOf(thumbnail.getId()));
+		intent.putExtra("transition", String.valueOf(clusterThumbnail.getId()));
+		clusterThumbnail.setTransitionName(String.valueOf(clusterThumbnail.getId()));
+		ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(this, clusterThumbnail,
+		                                                                       String.valueOf(clusterThumbnail.getId()));
 		startActivityForResult(intent, IMAGE_CLUSTER_ACTIVITY_CODE, options.toBundle());
 	}
 
@@ -230,8 +231,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 						List<String> deleted = data.getStringArrayListExtra("deleted");
 						// Remove deleted images from galleryView
 						scannedImages.removeIf(img -> {
-							for (String deletedName : deleted) {
-								if (deletedName.equals(img.getPath())) {
+							for (String deletedPath : deleted) {
+								if (deletedPath.equals(img.getPath())) {
 									return true;
 								}
 							}

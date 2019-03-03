@@ -28,13 +28,12 @@ public class IntroActivity extends AppIntro {
 		getSupportActionBar().hide();
 		setResult(RESULT_CANCELED);
 
-		// TODO: Increase description size
 		AnimatedSliderPage welcomeSlide = new AnimatedSliderPage();
 		welcomeSlide.setTitle("Welcome!");
 		welcomeSlide.setDescription(
 				"This App will help you clean your duplicated images");
 		welcomeSlide.setBgColor(Color.TRANSPARENT);
-		welcomeSlide.setDescSize(20f);
+		welcomeSlide.setDescSize(19f);
 		welcomeSlide.setAnimationId(R.raw.smiley);
 		addSlide(AnimatedFragment.newInstance(welcomeSlide));
 
@@ -65,7 +64,7 @@ public class IntroActivity extends AppIntro {
 		doneSlide.setTitle("Done!");
 		doneSlide.setDescription("We are good to go :)");
 		doneSlide.setBgColor(Color.TRANSPARENT);
-		doneSlide.setDescSize(20f);
+		doneSlide.setDescSize(19f);
 		doneSlide.setAnimationId(R.raw.done);
 		addSlide(AnimatedFragment.newInstance(doneSlide));
 
