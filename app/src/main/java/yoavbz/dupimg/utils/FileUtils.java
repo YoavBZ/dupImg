@@ -2,8 +2,8 @@ package yoavbz.dupimg.utils;
 
 import android.content.Context;
 import android.os.Environment;
-import android.support.annotation.Nullable;
 import android.util.Log;
+import androidx.annotation.Nullable;
 
 import java.io.File;
 import java.util.ArrayList;

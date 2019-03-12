@@ -2,14 +2,15 @@ package yoavbz.dupimg.utils;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
+import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 import com.buildware.widget.indeterm.IndeterminateCheckBox;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.utils.Directory.DirState;
@@ -45,6 +46,29 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 		Directory directory = directories.get(position);
 
 		holder.dirName.setText(directory.getName());
+		Drawable icon;
+		if (directory.getLevel() == 0) {
+			holder.checkbox.setVisibility(View.GONE);
+			icon = context.getDrawable(R.drawable.ic_sd_card);
+		} else {
+			// Setting checkBox according to state, preventing infinite recursive calls
+			holder.checkbox.setOnStateChangedListener(null);
+			holder.checkbox.setState(directory.getState().toBoolean());
+			holder.checkbox.setOnStateChangedListener((checkBox, checkBoxState) -> {
+				DirState state = DirState.toState(checkBoxState);
+				int pos = holder.getAdapterPosition();
+				Directory dir = directories.get(pos);
+				dir.setState(state, true, true);
+
+				// Updating parents
+				notifyParents(dir);
+				notifyItemChanged(getParentIndex(dir));
+				// Updating current dir and children (if expanded)
+				notifyItemRangeChanged(pos, getLastChildIndex(dir));
+			});
+			icon = context.getDrawable(R.drawable.ic_folder);
+		}
+		holder.icon.setImageDrawable(icon);
 
 		// Setting expandButton according to its children number and expanding state
 		if (directory.hasChildren()) {
@@ -53,21 +77,6 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 		} else {
 			holder.expandButton.setVisibility(View.INVISIBLE);
 		}
-		// Setting checkBox according to state, preventing infinite recursive calls
-		holder.checkbox.setOnStateChangedListener(null);
-		holder.checkbox.setState(directory.getState().toBoolean());
-		holder.checkbox.setOnStateChangedListener((checkBox, checkBoxState) -> {
-			DirState state = DirState.toState(checkBoxState);
-			int pos = holder.getAdapterPosition();
-			Directory dir = directories.get(pos);
-			dir.setState(state, true, true);
-
-			// Updating parents
-			notifyParents(dir);
-			notifyItemChanged(getParentIndex(dir));
-			// Updating current dir and children (if expanded)
-			notifyItemRangeChanged(pos, getLastChildIndex(dir));
-		});
 
 		// Setting left margin according to the level
 		float density = context.getResources().getDisplayMetrics().density;
@@ -123,12 +132,13 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 		return i;
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	void collapse(int index) {
 		DirHolder holder = (DirHolder) directoryTreeView.findViewHolderForAdapterPosition(index);
-		holder.expandButton.animate()
-		                   .rotation(0)
-		                   .start();
+		if (holder != null) {
+			holder.expandButton.animate()
+			                   .rotation(0)
+			                   .start();
+		}
 	}
 
 	class DirHolder extends RecyclerView.ViewHolder {

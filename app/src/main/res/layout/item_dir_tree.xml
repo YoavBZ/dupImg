@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
 		xmlns:android="http://schemas.android.com/apk/res/android"
+		xmlns:app="http://schemas.android.com/apk/res-auto"
+		xmlns:tools="http://schemas.android.com/tools"
 		android:layout_width="match_parent"
 		android:layout_height="match_parent"
 		android:orientation="horizontal"
@@ -10,14 +12,22 @@
 			android:id="@+id/expand_button"
 			android:layout_width="30dp"
 			android:layout_height="30dp"
-			android:src="@drawable/ic_expand_button"
-			android:layout_gravity="center"/>
+			app:srcCompat="@drawable/ic_expand_button"
+			android:layout_gravity="center"
+			tools:ignore="ContentDescription"/>
 
 	<com.buildware.widget.indeterm.IndeterminateCheckBox
 			android:id="@+id/checkbox"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:layout_gravity="center"/>
+
+	<ImageView
+			android:id="@+id/icon"
+			android:layout_width="25dp"
+			android:layout_height="25dp"
+			android:layout_gravity="center"
+			tools:ignore="ContentDescription"/>
 
 	<TextView
 			android:id="@+id/dir_name"

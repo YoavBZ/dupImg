@@ -1,6 +1,6 @@
 package yoavbz.dupimg.utils;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -70,7 +70,19 @@ public class Directory {
 		return state;
 	}
 
+	/**
+	 * This method updates the directory state and updates (if necessary) the parent and children states.
+	 * The method calls the {@link Directory.OnDirStateChangeListener} if was set.
+	 * If the same state is being set, the method does nothing.
+	 *
+	 * @param state          The new state to be set
+	 * @param updateParent   Boolean indicates whether the dir's parent should be updated
+	 * @param updateChildren Boolean indicates whether the dir's children should be updated
+	 */
 	public void setState(DirState state, boolean updateParent, boolean updateChildren) {
+		if (this.state == state) {
+			return;
+		}
 		this.state = state;
 		if (listener != null) {
 			listener.onDirStateChange(this, state);

@@ -9,10 +9,10 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.ImageClassifier;
@@ -34,6 +34,12 @@ public class NotificationJobService extends JobService {
 	private ImageDao db;
 	private Thread thread;
 
+	private static void checkInterrupt(@NonNull Thread thread) throws InterruptedException {
+		if (thread.isInterrupted()) {
+			throw new InterruptedException();
+		}
+	}
+
 	@Override
 	public boolean onStartJob(JobParameters params) {
 		Log.d(MainActivity.TAG, "NotificationJobService: onStartJob");
@@ -44,15 +50,18 @@ public class NotificationJobService extends JobService {
 			try (ImageClassifier classifier = new ImageClassifier(NotificationJobService.this,
 			                                                      "mobilenet_v2_1.0_224_quant.tflite",
 			                                                      "labels.txt", 224)) {
-
+				checkInterrupt(thread);
 				db = ImageDatabase.getAppDatabase(NotificationJobService.this).imageDao();
+				checkInterrupt(thread);
 				// Fetching all the images from the camera directory
 				List<String> localImages = getLocalImages();
+				checkInterrupt(thread);
 				// Removing from the database images that were deleted from local directory
 				boolean deletedImages = db.deleteNotInList(localImages);
 				if (deletedImages) {
 					updateUi = true;
 				}
+				checkInterrupt(thread);
 				// Filtering new local images, which aren't in the database
 				List<Image> newImages = getNewImages(localImages, classifier);
 				if (newImages.isEmpty()) {
@@ -68,11 +77,11 @@ public class NotificationJobService extends JobService {
 						.setShowWhen(true)
 						.setContentText("Click to select which images to keep")
 						.setAutoCancel(true)
-						.setGroup("dupImg")
-						.setPriority(NotificationCompat.PRIORITY_HIGH);
+						.setGroup("dupImg");
 
 				DBSCANClusterer<Image> clusterer = new DBSCANClusterer<>(1.7, 2);
 				// Constructing image clusters and send notifications if necessary
+				checkInterrupt(thread);
 				List<Cluster<Image>> clusters = clusterer.cluster(newImages);
 				processClusters(clusters, builder);
 				// Updating UI in case of new clusters
@@ -82,7 +91,7 @@ public class NotificationJobService extends JobService {
 			} catch (Exception e) {
 				Log.e(MainActivity.TAG, "NotificationJobService: Got an exception", e);
 			} finally {
-				if (updateUi) {
+				if (updateUi && !thread.isInterrupted()) {
 					Intent intent = new Intent(MainActivity.ACTION_UPDATE_UI);
 					LocalBroadcastManager.getInstance(NotificationJobService.this).sendBroadcast(intent);
 				}
@@ -108,6 +117,7 @@ public class NotificationJobService extends JobService {
 		return newImages;
 	}
 
+	@SuppressWarnings("ConstantConditions")
 	private List<String> getLocalImages() {
 		Set dirs = PreferenceManager.getDefaultSharedPreferences(this)
 		                            .getStringSet("dirs", Collections.emptySet());
@@ -120,14 +130,14 @@ public class NotificationJobService extends JobService {
 			Intent intent = new Intent(this, ImageClusterActivity.class);
 			intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) images);
 			int id = (int) SystemClock.uptimeMillis();
-			PendingIntent pendingIntent = PendingIntent.getActivity(this, id, intent, PendingIntent.FLAG_ONE_SHOT);
+			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
 			Image previewImg = images.get(0);
-			Bitmap rotatedPreviewImg = previewImg.getOrientedBitmap();
+			Bitmap orientedBitmap = previewImg.getOrientedBitmap();
 			builder.setContentIntent(pendingIntent)
 			       .setContentTitle("Found " + images.size() + " new duplicates!")
-			       .setLargeIcon(rotatedPreviewImg)
+			       .setLargeIcon(orientedBitmap)
 			       .setStyle(new NotificationCompat.BigPictureStyle()
-					                 .bigPicture(rotatedPreviewImg)
+					                 .bigPicture(orientedBitmap)
 					                 .bigLargeIcon(null));
 			mNotifyManager.notify(id, builder.build());
 		}
@@ -135,10 +145,9 @@ public class NotificationJobService extends JobService {
 
 	private void createNotificationChannel() {
 		// Create the NotificationChannel with all the parameters.
-		NotificationChannel notificationChannel = new NotificationChannel(
-				"dupImg", "Background Notification", NotificationManager.IMPORTANCE_HIGH);
-		notificationChannel.enableLights(false);
-		notificationChannel.setDescription("Notifications from Job Service");
+		NotificationChannel notificationChannel = new NotificationChannel("dupImg", "Background Notification",
+		                                                                  NotificationManager.IMPORTANCE_HIGH);
+		notificationChannel.setDescription("Notifications from the background scanning service.");
 
 		mNotifyManager.createNotificationChannel(notificationChannel);
 	}

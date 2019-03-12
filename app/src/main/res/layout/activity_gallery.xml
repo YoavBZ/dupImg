@@ -6,7 +6,7 @@
 		android:id="@+id/mainLayout"
 		android:orientation="vertical">
 
-	<android.support.v7.widget.Toolbar
+	<androidx.appcompat.widget.Toolbar
 			android:id="@+id/toolbar_media_gallery"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"/>
@@ -18,7 +18,7 @@
 			android:layout_height="match_parent"
 			android:layout_below="@+id/toolbar_media_gallery"/>
 
-	<android.support.v7.widget.RecyclerView
+	<androidx.recyclerview.widget.RecyclerView
 			android:id="@+id/horizontal_list"
 			android:layout_width="match_parent"
 			android:layout_height="70dp"

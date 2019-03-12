@@ -1,15 +1,7 @@
 package yoavbz.dupimg.intro;
 
-import android.app.AlertDialog;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.annotation.RawRes;
-import android.support.constraint.ConstraintLayout;
-import android.support.constraint.ConstraintSet;
-import android.support.v7.widget.SwitchCompat;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,6 +10,13 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RawRes;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.constraintlayout.widget.ConstraintSet;
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.github.paolorotolo.appintro.AppIntroBaseFragment;
@@ -34,7 +33,7 @@ class CustomFragments {
 
 	public static class PermissionFragment extends AppIntroBaseFragment {
 
-		public static PermissionFragment newInstance(SliderPage sliderPage) {
+		public static PermissionFragment newInstance(@NonNull SliderPage sliderPage) {
 			PermissionFragment slide = new PermissionFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
@@ -55,16 +54,15 @@ class CustomFragments {
 		public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
 		                         @Nullable Bundle savedInstanceState) {
 			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
-
-			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
-			desc.setTextSize(20f);
-			((LinearLayout) desc.getParent()).removeView(desc);
-
+			// Changing description size
+			TextView description = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
+			description.setTextSize(19f);
+			// Removing image from main layout
 			ImageView imageView = view.findViewById(com.github.paolorotolo.appintro.R.id.image);
-			((LinearLayout) imageView.getParent()).removeView(imageView);
-
+			view.removeViewAt(1);
+			((LinearLayout) imageView.getParent()).removeAllViews();
+			// Constructing ConstraintLayout & LottieAnimationView
 			ConstraintLayout constraintLayout = new ConstraintLayout(getContext());
-
 			LottieAnimationView animationView = new LottieAnimationView(getContext());
 			animationView.setId(View.generateViewId());
 			animationView.setAnimation(R.raw.click);
@@ -72,11 +70,12 @@ class CustomFragments {
 			animationView.setRepeatCount(LottieDrawable.INFINITE);
 			animationView.setScale(0.15f);
 			animationView.setElevation(5f);
-			constraintLayout.addView(desc);
+			// Adding image and animation to ConstraintLayout
 			constraintLayout.addView(animationView);
 			constraintLayout.addView(imageView);
+			// Adding ConstraintLayout to main layout
 			view.addView(constraintLayout, 2);
-
+			// Setting constrains for ConstraintLayout
 			ConstraintSet constrains = new ConstraintSet();
 			constrains.clone(constraintLayout);
 			constrains.connect(animationView.getId(), ConstraintSet.LEFT, imageView.getId(), ConstraintSet.LEFT);
@@ -122,7 +121,7 @@ class CustomFragments {
 			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
 
 			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
-			desc.setTextSize(20f);
+			desc.setTextSize(19f);
 
 			Button selectDirButton = new Button(getContext());
 			selectDirButton.setText("Select directories");
@@ -164,7 +163,7 @@ class CustomFragments {
 
 	public static class BackgroundMonitorFragment extends AppIntroBaseFragment {
 
-		public static BackgroundMonitorFragment newInstance(SliderPage sliderPage) {
+		public static BackgroundMonitorFragment newInstance(@NonNull SliderPage sliderPage) {
 			BackgroundMonitorFragment slide = new BackgroundMonitorFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
@@ -187,7 +186,7 @@ class CustomFragments {
 			LinearLayout view = (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
 
 			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
-			desc.setTextSize(20f);
+			desc.setTextSize(19f);
 
 			SwitchCompat monitorSwitch = (SwitchCompat) getLayoutInflater().inflate(R.layout.background_switch, null);
 			monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -198,8 +197,6 @@ class CustomFragments {
 			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(700, 190);
 			lp.gravity = Gravity.CENTER;
 			monitorSwitch.setLayoutParams(lp);
-			monitorSwitch.setTextColor(Color.WHITE);
-			monitorSwitch.setTextSize(20f);
 			view.addView(monitorSwitch);
 			return view;
 		}
@@ -212,8 +209,8 @@ class CustomFragments {
 
 	public static class AnimatedFragment extends AppIntroBaseFragment {
 
-		private static final String ARG_DESC_SIZE = "desc_size";
-		private static final String ARG_ANIMATION = "animation";
+		public static final String ARG_DESC_SIZE = "desc_size";
+		public static final String ARG_ANIMATION = "animation";
 
 		@RawRes
 		private int animationId;
@@ -234,16 +231,14 @@ class CustomFragments {
 			args.putFloat(ARG_DESC_SIZE, sliderPage.getDescSize());
 			args.putInt(ARG_ANIMATION, sliderPage.getAnimationId());
 			fragment.setArguments(args);
-
 			return fragment;
 		}
 
 		@Override
 		public void onCreate(@Nullable Bundle savedInstanceState) {
 			super.onCreate(savedInstanceState);
-
 			if (getArguments() != null && getArguments().size() != 0) {
-				descSize = getArguments().getFloat(ARG_DESC_SIZE, 16);
+				descSize = getArguments().getFloat(ARG_DESC_SIZE, 18);
 				animationId = getArguments().getInt(ARG_ANIMATION);
 			}
 		}
@@ -251,7 +246,6 @@ class CustomFragments {
 		@Override
 		public void onActivityCreated(@Nullable Bundle savedInstanceState) {
 			super.onActivityCreated(savedInstanceState);
-
 			if (savedInstanceState != null) {
 				descSize = savedInstanceState.getInt(ARG_DESC_SIZE);
 				animationId = savedInstanceState.getInt(ARG_ANIMATION);

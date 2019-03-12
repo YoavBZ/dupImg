@@ -2,14 +2,13 @@ package yoavbz.dupimg.gallery.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.drawable.Drawable;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
@@ -24,20 +23,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.ViewHolder> {
+
+	@SuppressLint("SimpleDateFormat")
+	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 	private ArrayList<Cluster<Image>> clusters;
 	private Context context;
-	private Drawable imgPlaceHolderResId;
 	private GalleryView.OnClusterClickListener clickListener;
 	private int height;
 	private int width;
-	@SuppressLint("SimpleDateFormat")
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
-	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters, Drawable imgPlaceHolderResId) {
+	public GridImagesAdapter(Context activity, ArrayList<Cluster<Image>> imageClusters) {
 		super();
 		this.clusters = imageClusters;
 		this.context = activity;
-		this.imgPlaceHolderResId = imgPlaceHolderResId;
 	}
 
 	@Override
@@ -49,18 +47,19 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 
 	@Override
 	public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
-		holder.updateThumbnailSize();
 		List<Image> images = clusters.get(position).getPoints();
 		holder.firstImage = images.get(0);
-		// Setting cluster size
+		// Loading cluster thumbnail using Glide
+		holder.updateThumbnailSize();
 		Glide.with(context)
 		     .load(holder.firstImage.getPath())
 		     .apply(new RequestOptions()
-				            .placeholder(imgPlaceHolderResId)
+				            .placeholder(R.drawable.gallery_placeholder)
 				            // Saving original image to cache for future loadings
 				            .diskCacheStrategy(DiskCacheStrategy.RESOURCE))
 		     .transition(DrawableTransitionOptions.withCrossFade(500))
 		     .into(holder.clusterThumbnail);
+		// Setting cluster size
 		holder.clusterSize.setText(String.valueOf(images.size()));
 		// Setting cluster date
 		String date = dateFormat.format(holder.firstImage.getDateTaken());

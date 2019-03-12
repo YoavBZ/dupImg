@@ -5,10 +5,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 import com.github.paolorotolo.appintro.AppIntro;
 import com.github.paolorotolo.appintro.model.SliderPage;
 import yoavbz.dupimg.R;
@@ -20,7 +20,7 @@ import yoavbz.dupimg.intro.CustomFragments.SelectDirFragment;
 @SuppressWarnings("ConstantConditions")
 public class IntroActivity extends AppIntro {
 
-	public static final int PERMISSION_FRAGMENT_INDEX = 2;
+	private static final int DIRS_FRAGMENT_INDEX = 2;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -30,32 +30,32 @@ public class IntroActivity extends AppIntro {
 
 		AnimatedSliderPage welcomeSlide = new AnimatedSliderPage();
 		welcomeSlide.setTitle("Welcome!");
-		welcomeSlide.setDescription(
-				"This App will help you clean your duplicated images");
-		welcomeSlide.setBgColor(Color.TRANSPARENT);
+		welcomeSlide.setDescription("This App will help you clean your duplicated images!");
 		welcomeSlide.setDescSize(19f);
 		welcomeSlide.setAnimationId(R.raw.smiley);
+		welcomeSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AnimatedFragment.newInstance(welcomeSlide));
 
 		SliderPage permissionSlide = new SliderPage();
 		permissionSlide.setTitle("App Permissions");
 		permissionSlide.setDescription(
 				"In order to scan and modify files, please click the 'Next' button and approve the asked permissions");
-		permissionSlide.setDescColor(Color.WHITE);
 		permissionSlide.setImageDrawable(R.drawable.permissions);
 		permissionSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(PermissionFragment.newInstance(permissionSlide));
 
 		SliderPage defaultDirSlide = new SliderPage();
-		defaultDirSlide.setTitle("Camera Directory");
-		defaultDirSlide.setDescription("Please select your default camera directory:");
-		defaultDirSlide.setImageDrawable(R.drawable.ic_camera);
+		defaultDirSlide.setTitle("Scanning Directories");
+		defaultDirSlide.setDescription("Please select the directories\nyou would like to scan:");
+		defaultDirSlide.setImageDrawable(R.drawable.images);
 		defaultDirSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(SelectDirFragment.newInstance(defaultDirSlide));
 
 		SliderPage backgroundMonitorSlide = new SliderPage();
 		backgroundMonitorSlide.setTitle("Background Monitor");
-		backgroundMonitorSlide.setDescription("Periodically scan your default directory for duplications");
+		backgroundMonitorSlide.setDescription("Periodically scan your selected directories for duplications.\n" +
+				                                      "In case duplications have been found, " +
+				                                      "a notification will be sent.");
 		backgroundMonitorSlide.setImageDrawable(R.drawable.monitor_notification);
 		backgroundMonitorSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(BackgroundMonitorFragment.newInstance(backgroundMonitorSlide));
@@ -63,9 +63,9 @@ public class IntroActivity extends AppIntro {
 		AnimatedSliderPage doneSlide = new AnimatedSliderPage();
 		doneSlide.setTitle("Done!");
 		doneSlide.setDescription("We are good to go :)");
-		doneSlide.setBgColor(Color.TRANSPARENT);
 		doneSlide.setDescSize(19f);
 		doneSlide.setAnimationId(R.raw.done);
+		doneSlide.setBgColor(Color.TRANSPARENT);
 		addSlide(AnimatedFragment.newInstance(doneSlide));
 
 		// Adding listener for hiding next button when changing to defaultDirSlide until selecting directory
@@ -73,20 +73,17 @@ public class IntroActivity extends AppIntro {
 			@Override
 			public void onPageSelected(int position) {
 				super.onPageSelected(position);
-				if (position == PERMISSION_FRAGMENT_INDEX) {
+				if (position == DIRS_FRAGMENT_INDEX) {
 					setButtonState(nextButton, false);
-
 				}
+				setButtonState(backButton, position != 0);
 			}
 		});
-
-		showSkipButton(false);
 		askForPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
 		                               Manifest.permission.WRITE_EXTERNAL_STORAGE},
-		                  PERMISSION_FRAGMENT_INDEX);
+		                  DIRS_FRAGMENT_INDEX);
+		showSkipButton(false);
 		showSeparator(true);
-		setGoBackLock(true);
-		setFadeAnimation();
 	}
 
 	@Override
@@ -102,14 +99,10 @@ public class IntroActivity extends AppIntro {
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-		if (grantResults.length == 0) {
-			return;
-		}
 		for (int result : grantResults) {
 			if (result == PackageManager.PERMISSION_DENIED) {
 				Toast.makeText(this, "Cannot launch app without permissions", Toast.LENGTH_LONG).show();
 				finish();
-				return;
 			}
 		}
 	}

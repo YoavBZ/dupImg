@@ -1,19 +1,17 @@
 package yoavbz.dupimg.background;
 
 import android.animation.ObjectAnimator;
-import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.job.JobInfo;
-import android.app.job.JobScheduler;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.constraint.ConstraintLayout;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import at.wirecube.additiveanimations.additive_animator.AdditiveAnimator;
 import at.wirecube.additiveanimations.additive_animator.AnimationEndListener;
 import org.apache.commons.math3.ml.clustering.Cluster;
@@ -38,8 +36,6 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 	private final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
 	private Notification.Builder mBuilder;
-	private JobInfo job;
-	private JobScheduler scheduler;
 	private AtomicBoolean isPreviewing = new AtomicBoolean(false);
 	private AdditiveAnimator animation;
 	private int scanned = 0;
@@ -70,12 +66,6 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 			activity.isAsyncTaskRunning.compareAndSet(false, true);
 			activity.invalidateOptionsMenu();
 
-			// Stopping JobScheduler while classifying
-			scheduler = activity.getSystemService(JobScheduler.class);
-			job = scheduler.getPendingJob(MainActivity.JOB_ID);
-			if (job != null) {
-				scheduler.cancel(MainActivity.JOB_ID);
-			}
 			// Modifying views visibility
 			activity.galleryView.setVisibility(View.GONE);
 			activity.progressBar.setVisibility(View.VISIBLE);
@@ -88,6 +78,8 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 	private void initNotification(@NonNull MainActivity activity) {
 		NotificationChannel channel = new NotificationChannel("dupImg", "Scanning Progress",
 		                                                      NotificationManager.IMPORTANCE_MIN);
+		channel.setDescription("Notification the appears only while the classification task is running.\n" +
+				                       "Indicates the task progress.");
 		channel.enableLights(false);
 		channel.enableVibration(false);
 		activity.notificationManager.createNotificationChannel(channel);
@@ -213,7 +205,7 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 	 * @param activity The activity {@link MainActivity}
 	 * @param image    The {@link Image} to preview
 	 */
-	private void animatePreview(@NonNull Activity activity, Image image) {
+	private void animatePreview(@NonNull AppCompatActivity activity, Image image) {
 		if (!isPreviewing.get()) {
 			isPreviewing.compareAndSet(false, true);
 			ImageView preview = activity.findViewById(R.id.preview);
@@ -229,7 +221,7 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 				                            .thenBeforeEnd(1000L)
 				                            // X transitioning
 				                            .xBy(-(layout.getWidth() - preview.getWidth()) * 0.5f)
-				                            .setDuration(1700L)
+				                            .setDuration(2000L)
 				                            .thenBeforeEnd(600L)
 				                            // Alpha
 				                            .alpha(0f)
@@ -246,7 +238,7 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 		}
 	}
 
-	private List<Image> getNewImages(Activity activity, @NonNull ImageDao dao, ImageClassifier classifier,
+	private List<Image> getNewImages(AppCompatActivity activity, @NonNull ImageDao dao, ImageClassifier classifier,
 	                                 @NonNull List<String> localImages) {
 		ArrayList<Image> newImages = new ArrayList<>();
 		// Filtering images that are already in the database
@@ -303,9 +295,6 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 			activity.progressBar.setVisibility(View.GONE);
 			activity.galleryView.setVisibility(View.VISIBLE);
 			activity.invalidateOptionsMenu();
-			if (job != null) {
-				scheduler.schedule(job);
-			}
 		}
 	}
 

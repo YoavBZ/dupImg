@@ -1,22 +1,12 @@
 package yoavbz.dupimg;
 
 import android.app.ActivityOptions;
-import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.*;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.design.widget.NavigationView;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v4.view.GravityCompat;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.SwitchCompat;
-import android.support.v7.widget.Toolbar;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
@@ -26,7 +16,18 @@ import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.GravityCompat;
+import androidx.core.view.MenuItemCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.bumptech.glide.Glide;
+import com.google.android.material.navigation.NavigationView;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
 import yoavbz.dupimg.background.ClassificationTask;
@@ -38,10 +39,7 @@ import yoavbz.dupimg.models.Image;
 import yoavbz.dupimg.utils.Directory;
 import yoavbz.dupimg.utils.DirectoryTreeView;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -126,7 +124,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	 * - Regular UI initiation.
 	 * - Async images classifying and clustering.
 	 */
-	@SuppressWarnings("ConstantConditions")
 	private void init() {
 		// Layout
 		setContentView(R.layout.activity_main);
@@ -146,9 +143,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		navigationView.setNavigationItemSelectedListener(this);
 
 		// Background monitor switch
-		SwitchCompat monitorSwitch = (SwitchCompat) navigationView.getMenu()
-		                                                          .findItem(R.id.drawer_switch)
-		                                                          .getActionView();
+		SwitchCompat monitorSwitch = (SwitchCompat) MenuItemCompat.getActionView(navigationView.getMenu()
+		                                                                                       .findItem(
+				                                                                                       R.id.drawer_switch));
 		boolean isJobScheduled = pref.getBoolean("isJobSchedule", true);
 		JobScheduler scheduler = getSystemService(JobScheduler.class);
 		Log.d(TAG, "MainActivity: Background service is " + (isJobScheduled ? "" : "not ") + "running");
@@ -159,6 +156,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				                                                            NotificationJobService.class.getName()))
 						.setPeriodic(TimeUnit.MINUTES.toMillis(15))
 						.setPersisted(true)
+						.setRequiresBatteryNotLow(true)
 						.build();
 				scheduler.schedule(job);
 			} else {
@@ -181,7 +179,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		progressBar = findViewById(R.id.classification_progress);
 
 		rescanImages();
-
 	}
 
 	/**
@@ -318,6 +315,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	 * @return true to display the item as selected
 	 */
 	@Override
+	@SuppressWarnings("ConstantConditions")
 	public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 		// Handle navigation view item clicks here.
 		switch (item.getItemId()) {
@@ -332,13 +330,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 						selectedDirs.remove(dir.getFile().getPath());
 					}
 				});
+				Set<String> paths = PreferenceManager.getDefaultSharedPreferences(this)
+				                                     .getStringSet("dirs", Collections.emptySet());
+				for (String path : paths) {
+					dirTreeView.checkDirs(path);
+				}
 				new AlertDialog.Builder(this)
 						.setTitle("Select directories to scan:")
 						.setView(dirTreeView)
-						.setPositiveButton("OK", (dialog, which) ->
-								PreferenceManager.getDefaultSharedPreferences(this).edit()
-								                 .putStringSet("dirs", selectedDirs)
-								                 .apply())
+						.setPositiveButton("OK", (dialog, which) -> {
+							PreferenceManager.getDefaultSharedPreferences(this).edit()
+							                 .putStringSet("dirs", selectedDirs)
+							                 .apply();
+							rescanImages();
+						})
 						.setNegativeButton("Cancel", null)
 						.show();
 				break;
@@ -368,7 +373,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				AlertDialog dialog = new AlertDialog.Builder(this)
 						.setTitle("About")
 						.setMessage(message)
-						.setNeutralButton("Ok", null)
+						.setNeutralButton("OK", null)
 						.show();
 				((TextView) dialog.findViewById(android.R.id.message))
 						.setMovementMethod(LinkMovementMethod.getInstance());

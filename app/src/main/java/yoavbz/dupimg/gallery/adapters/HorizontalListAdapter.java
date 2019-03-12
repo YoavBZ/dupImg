@@ -1,15 +1,15 @@
 package yoavbz.dupimg.gallery.adapters;
 
-import android.app.Activity;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
-import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import yoavbz.dupimg.R;
@@ -23,7 +23,7 @@ import java.util.ArrayList;
 public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAdapter.ViewHolder> {
 
 	private final ArrayList<Image> images;
-	private final Activity activity;
+	private final AppCompatActivity activity;
 	private final OnImageClickListener clickListener;
 	private int currentPosition = 0;
 	private ArrayList<Image> toDelete;
@@ -36,7 +36,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 	 * @param clickListener The click listener for the images
 	 * @param toDelete      Reference to the list of images to delete (selected images)
 	 */
-	public HorizontalListAdapter(Activity activity, ArrayList<Image> images, OnImageClickListener clickListener,
+	public HorizontalListAdapter(AppCompatActivity activity, ArrayList<Image> images, OnImageClickListener clickListener,
 	                             ArrayList<Image> toDelete) {
 		this.activity = activity;
 		this.images = images;

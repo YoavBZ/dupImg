@@ -1,7 +1,7 @@
 package yoavbz.dupimg.database;
 
-import android.arch.persistence.room.*;
 import android.content.Context;
+import androidx.room.*;
 import yoavbz.dupimg.models.Image;
 
 import java.util.Arrays;

@@ -1,12 +1,13 @@
 package yoavbz.dupimg.utils;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.File;
 import java.util.List;
 
 public class DirectoryTreeView extends RecyclerView {
@@ -32,6 +33,31 @@ public class DirectoryTreeView extends RecyclerView {
 		setLayoutManager(new LinearLayoutManager(getContext()));
 		adapter = new DirectoryTreeAdapter(this);
 		setAdapter(adapter);
+	}
+
+	public void checkDirs(String path) {
+		// Searching the directory in all storages (getDirectories() returns only the storages at the beginning)
+		for (Directory storage : adapter.getDirectories()) {
+			boolean inCurrentStorage = false;
+			do {
+				// Searching for the correct child dir
+				for (Directory child : storage.getChildren()) {
+					if (path.equals(child.getFile().getAbsolutePath())) {
+						child.setState(Directory.DirState.FULL, true, false);
+						return;
+					}
+					// Making sure we don't check partial dir names with startWith
+					if (path.startsWith(child.getFile().getAbsolutePath()) && child.hasChildren() &&
+							path.charAt(child.getFile().getAbsolutePath().length()) == File.separatorChar) {
+						inCurrentStorage = true;
+						// Entering current child
+						storage = child;
+						break;
+					}
+				}
+				// Checking the next storage if the path isn't in the current storage
+			} while (inCurrentStorage);
+		}
 	}
 
 	public void setOnDirStateChangeListener(Directory.OnDirStateChangeListener listener) {

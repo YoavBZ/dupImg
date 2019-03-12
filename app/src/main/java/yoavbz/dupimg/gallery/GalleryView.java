@@ -2,13 +2,7 @@ package yoavbz.dupimg.gallery;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.Point;
-import android.graphics.drawable.Drawable;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.TransitionManager;
@@ -18,6 +12,10 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
@@ -33,7 +31,6 @@ public class GalleryView extends RecyclerView {
 	private final MainActivity activity;
 	private GridImagesAdapter mAdapter;
 	private ArrayList<Cluster<Image>> imageClusters = new ArrayList<>();
-	private Drawable mPlaceHolder;
 	// Scaling
 	private ScaleGestureDetector scaleDetector;
 	private TransitionSet transition = new TransitionSet()
@@ -44,31 +41,22 @@ public class GalleryView extends RecyclerView {
 	 * Instantiates a new Media gallery view.
 	 *
 	 * @param context the context
-	 */
-	public GalleryView(Context context) {
-		super(context);
-		this.activity = (MainActivity) context;
-		initAdapter();
-	}
-
-	/**
-	 * Instantiates a new Media gallery view.
-	 *
-	 * @param context the context
 	 * @param attrs   the attrs
 	 */
 	public GalleryView(Context context, @Nullable AttributeSet attrs) {
 		super(context, attrs);
 		this.activity = (MainActivity) context;
-		initAdapter();
-		TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.GalleryView, 0, 0);
-		setSpanCount(2);
-		mPlaceHolder = a.getDrawable(R.styleable.GalleryView_place_holder);
-		initScaling();
+		init();
 	}
 
-	private void initScaling() {
-		// Initiating ScaleGestureDetector
+	/**
+	 * Initiates {@link GridLayoutManager}, {@link GridImagesAdapter} and {@link ScaleGestureDetector}.
+	 */
+	public void init() {
+		setLayoutManager(new GridLayoutManager(activity, 2));
+		mAdapter = new GridImagesAdapter(activity, imageClusters);
+		setAdapter(mAdapter);
+		setSpanCount(2);
 		scaleDetector = new ScaleGestureDetector(activity, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
 
 			private static final float DISTANCE_THRESHOLD = 500; // In px
@@ -103,15 +91,7 @@ public class GalleryView extends RecyclerView {
 	}
 
 	/**
-	 * Init.
-	 */
-	public void initAdapter() {
-		mAdapter = new GridImagesAdapter(activity, imageClusters, mPlaceHolder);
-		setAdapter(mAdapter);
-	}
-
-	/**
-	 * Sets images.
+	 * Sets image clusters, updates main TextView and notifies adapter on data change.
 	 *
 	 * @param clusters The image clusters
 	 */
@@ -123,13 +103,6 @@ public class GalleryView extends RecyclerView {
 		} else {
 			activity.textView.setText(activity.getString(R.string.no_duplicates));
 		}
-		notifyDataSetChanged();
-	}
-
-	/**
-	 * Notify adapter for data set changed.
-	 */
-	public void notifyDataSetChanged() {
 		mAdapter.notifyDataSetChanged();
 	}
 
@@ -156,7 +129,8 @@ public class GalleryView extends RecyclerView {
 		mAdapter.setImageSize(width, height);
 		// Updating LayoutManager
 		TransitionManager.beginDelayedTransition(this, transition);
-		setLayoutManager(new GridLayoutManager(activity, spanCount));
+		((GridLayoutManager) getLayoutManager()).setSpanCount(spanCount);
+		mAdapter.notifyDataSetChanged();
 	}
 
 	public List<Image> getAllImages() {

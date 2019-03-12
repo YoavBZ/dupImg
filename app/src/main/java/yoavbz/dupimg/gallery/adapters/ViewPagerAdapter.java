@@ -1,18 +1,18 @@
 package yoavbz.dupimg.gallery.adapters;
 
-import android.app.Activity;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.view.PagerAdapter;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.PagerAdapter;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
@@ -31,7 +31,7 @@ import java.util.ArrayList;
  */
 public class ViewPagerAdapter extends PagerAdapter {
 
-	private Activity activity;
+	private AppCompatActivity activity;
 	private ArrayList<Image> mDataSet;
 	private boolean hideHorizontalList = true;
 	private Toolbar toolbar;
@@ -47,7 +47,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 	 * @param imagesHorizontalList the images horizontal list
 	 * @param transition           the transition name
 	 */
-	public ViewPagerAdapter(Activity activity, ArrayList<Image> dataSet, Toolbar toolbar, RecyclerView
+	public ViewPagerAdapter(AppCompatActivity activity, ArrayList<Image> dataSet, Toolbar toolbar, RecyclerView
 			imagesHorizontalList, String transition) {
 		this.activity = activity;
 		this.mDataSet = dataSet;

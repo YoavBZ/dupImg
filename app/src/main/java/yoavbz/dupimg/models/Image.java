@@ -1,19 +1,19 @@
 package yoavbz.dupimg.models;
 
 import android.annotation.SuppressLint;
-import android.arch.persistence.room.Entity;
-import android.arch.persistence.room.Ignore;
-import android.arch.persistence.room.PrimaryKey;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.media.ExifInterface;
 import android.util.Log;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.exifinterface.media.ExifInterface;
+import androidx.room.Entity;
+import androidx.room.Ignore;
+import androidx.room.PrimaryKey;
 import org.apache.commons.math3.ml.clustering.Clusterable;
 import yoavbz.dupimg.ImageClassifier;
 import yoavbz.dupimg.MainActivity;
@@ -30,15 +30,6 @@ import java.text.SimpleDateFormat;
 @Entity(tableName = "images")
 public class Image implements Parcelable, Clusterable {
 
-	public static final Creator<Image> CREATOR = new Creator<Image>() {
-		public Image createFromParcel(Parcel in) {
-			return new Image(in);
-		}
-
-		public Image[] newArray(int size) {
-			return new Image[size];
-		}
-	};
 	@Ignore
 	@SuppressLint("SimpleDateFormat")
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
@@ -47,7 +38,6 @@ public class Image implements Parcelable, Clusterable {
 	private String path;
 	private long dateTaken;
 	private double[] point;
-
 	public Image() {
 	}
 
@@ -152,10 +142,7 @@ public class Image implements Parcelable, Clusterable {
 	private Bitmap getScaledBitmap() {
 		Bitmap bitmap = BitmapFactory.decodeFile(path);
 		return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
-
 	}
-
-	// --- Clusterable interface functions ---
 
 	public void delete(Context context) {
 		ImageDao dao = ImageDatabase.getAppDatabase(context).imageDao();
@@ -167,7 +154,7 @@ public class Image implements Parcelable, Clusterable {
 		}
 	}
 
-	// --- Parcelable interface functions ---
+	// --- Clusterable interface functions ---
 
 	@Override
 	public double[] getPoint() {
@@ -177,6 +164,18 @@ public class Image implements Parcelable, Clusterable {
 	public void setPoint(double[] point) {
 		this.point = point;
 	}
+
+	// --- Parcelable interface functions ---
+
+	public static final Creator<Image> CREATOR = new Creator<Image>() {
+		public Image createFromParcel(Parcel in) {
+			return new Image(in);
+		}
+
+		public Image[] newArray(int size) {
+			return new Image[size];
+		}
+	};
 
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
