@@ -1,6 +1,5 @@
 package yoavbz.dupimg.gallery;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Point;
 import android.transition.ChangeBounds;
@@ -8,19 +7,17 @@ import android.transition.Fade;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.util.AttributeSet;
-import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import org.apache.commons.math3.ml.clustering.Cluster;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.adapters.GridImagesAdapter;
-import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +29,8 @@ public class GalleryView extends RecyclerView {
 	private GridImagesAdapter mAdapter;
 	private ArrayList<Cluster<Image>> imageClusters = new ArrayList<>();
 	// Scaling
-	private ScaleGestureDetector scaleDetector;
-	private TransitionSet transition = new TransitionSet()
+//	private ScaleGestureDetector scaleDetector;
+	private TransitionSet layoutTransition = new TransitionSet()
 			.addTransition(new ChangeBounds())
 			.addTransition(new Fade(Fade.IN));
 
@@ -57,37 +54,6 @@ public class GalleryView extends RecyclerView {
 		mAdapter = new GridImagesAdapter(activity, imageClusters);
 		setAdapter(mAdapter);
 		setSpanCount(2);
-		scaleDetector = new ScaleGestureDetector(activity, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-
-			private static final float DISTANCE_THRESHOLD = 500; // In px
-			private float initialSpan;
-
-			@Override
-			public boolean onScaleBegin(ScaleGestureDetector detector) {
-				initialSpan = detector.getCurrentSpan();
-				return true;
-			}
-
-			@Override
-			public boolean onScale(ScaleGestureDetector detector) {
-				int spanCount = ((GridLayoutManager) getLayoutManager()).getSpanCount();
-				if (measureScale(detector)) {
-					float scaleFactor = detector.getScaleFactor();
-					if (scaleFactor > 1f && spanCount == 2) {
-						setSpanCount(spanCount - 1);
-					} else if (scaleFactor < 1f && spanCount == 1) {
-						setSpanCount(spanCount + 1);
-					}
-					initialSpan = detector.getCurrentSpan();
-				}
-				return true;
-			}
-
-			private boolean measureScale(@NonNull ScaleGestureDetector detector) {
-				float distance = Math.abs(detector.getCurrentSpan() - initialSpan);
-				return distance > DISTANCE_THRESHOLD;
-			}
-		});
 	}
 
 	/**
@@ -104,6 +70,10 @@ public class GalleryView extends RecyclerView {
 			activity.textView.setText(activity.getString(R.string.no_duplicates));
 		}
 		mAdapter.notifyDataSetChanged();
+	}
+
+	public boolean isEmpty() {
+		return imageClusters.isEmpty();
 	}
 
 	/**
@@ -128,7 +98,7 @@ public class GalleryView extends RecyclerView {
 		int height = 900 / spanCount;
 		mAdapter.setImageSize(width, height);
 		// Updating LayoutManager
-		TransitionManager.beginDelayedTransition(this, transition);
+		TransitionManager.beginDelayedTransition(this, layoutTransition);
 		((GridLayoutManager) getLayoutManager()).setSpanCount(spanCount);
 		mAdapter.notifyDataSetChanged();
 	}
@@ -139,14 +109,6 @@ public class GalleryView extends RecyclerView {
 			images.addAll(cluster.getPoints());
 		}
 		return images;
-	}
-
-	@Override
-	@SuppressLint("ClickableViewAccessibility")
-	public boolean onTouchEvent(@NonNull MotionEvent ev) {
-		super.onTouchEvent(ev);
-		scaleDetector.onTouchEvent(ev);
-		return true;
 	}
 
 	public interface OnClusterClickListener {

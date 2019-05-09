@@ -1,4 +1,4 @@
-package yoavbz.dupimg.utils;
+package yoavbz.dupimg.treeview;
 
 import androidx.annotation.NonNull;
 
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import static yoavbz.dupimg.utils.Directory.DirState.PARTIAL;
+import static yoavbz.dupimg.treeview.Directory.DirState.PARTIAL;
 
 public class Directory {
 

@@ -1,7 +1,7 @@
 package yoavbz.dupimg.database;
 
 import androidx.room.*;
-import yoavbz.dupimg.models.Image;
+import yoavbz.dupimg.Image;
 
 import java.util.List;
 

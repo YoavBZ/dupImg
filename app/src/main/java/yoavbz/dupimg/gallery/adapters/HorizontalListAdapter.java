@@ -12,8 +12,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 

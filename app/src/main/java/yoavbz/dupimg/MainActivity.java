@@ -5,11 +5,13 @@ import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.*;
+import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,7 +25,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
-import androidx.core.view.MenuItemCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.bumptech.glide.Glide;
@@ -35,11 +36,14 @@ import yoavbz.dupimg.background.NotificationJobService;
 import yoavbz.dupimg.gallery.GalleryView;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 import yoavbz.dupimg.intro.IntroActivity;
-import yoavbz.dupimg.models.Image;
-import yoavbz.dupimg.utils.Directory;
-import yoavbz.dupimg.utils.DirectoryTreeView;
+import yoavbz.dupimg.treeview.Directory;
+import yoavbz.dupimg.treeview.DirectoryTreeView;
+import yoavbz.dupimg.treeview.FileUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,24 +54,27 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	public static final String TAG = "dupImg";
 	public static final int JOB_ID = 1;
 	public static final String ACTION_UPDATE_UI = "yoavbz.dupimg.ACTION_UPDATE_UI";
+	public static final int SELECT_SD_ROOT_CODE = 2;
 	private static final int SCANNING_NOTIFICATION_ID = 1;
 	private static final int IMAGE_CLUSTER_ACTIVITY_CODE = 0;
 	private static final int INTRO_ACTIVITY_CODE = 1;
 	// AtomicBoolean for AsyncTask usage
 	public AtomicBoolean isAsyncTaskRunning = new AtomicBoolean(false);
 	public AtomicBoolean isCustomScan = new AtomicBoolean(false);
+
 	// Views
 	public GalleryView galleryView;
 	public TextView textView;
 	public ProgressBar progressBar;
-	// Utility References
+
+	// Utility Objects
 	public NotificationManager notificationManager;
 	private ClassificationTask asyncTask;
 	private SharedPreferences pref;
 	private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			if (!isCustomScan.get() && ACTION_UPDATE_UI.equals(intent.getAction())) {
+			if (ACTION_UPDATE_UI.equals(intent.getAction()) && !isCustomScan.get() && !isAsyncTaskRunning.get()) {
 				rescanImages();
 			}
 		}
@@ -143,13 +150,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		navigationView.setNavigationItemSelectedListener(this);
 
 		// Background monitor switch
-		SwitchCompat monitorSwitch = (SwitchCompat) MenuItemCompat.getActionView(navigationView.getMenu()
-		                                                                                       .findItem(
-				                                                                                       R.id.drawer_switch));
+		SwitchCompat monitorSwitch = (SwitchCompat) navigationView.getMenu()
+		                                                          .findItem(R.id.drawer_switch)
+		                                                          .getActionView();
 		boolean isJobScheduled = pref.getBoolean("isJobSchedule", true);
 		JobScheduler scheduler = getSystemService(JobScheduler.class);
 		Log.d(TAG, "MainActivity: Background service is " + (isJobScheduled ? "" : "not ") + "running");
-		monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+		monitorSwitch.setOnCheckedChangeListener((view, isChecked) -> {
 			if (isChecked) {
 				// Turn on background jobService
 				JobInfo job = new JobInfo.Builder(JOB_ID, new ComponentName(getPackageName(),
@@ -246,6 +253,23 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				} else {
 					finish();
 				}
+				break;
+			case SELECT_SD_ROOT_CODE:
+				if (resultCode == RESULT_OK) {
+					Uri treeUri = data.getData();
+					if (treeUri != null) {
+						SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+						Set<String> uris = pref.getStringSet("STORAGE_URIS", new ArraySet<>());
+						uris.add(treeUri.toString());
+						pref.edit()
+						    .putStringSet("STORAGE_URIS", uris)
+						    .apply();
+						// After confirmation, update stored value of folder.
+						// Persist access permissions.
+						getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+								| Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+					}
+				}
 		}
 	}
 
@@ -276,6 +300,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 		getMenuInflater().inflate(R.menu.gallery_toolbar_menu, menu);
 		menu.findItem(R.id.action_back).setVisible(isCustomScan.get());
 		menu.findItem(R.id.action_cancel).setVisible(isAsyncTaskRunning.get());
+		menu.findItem(R.id.action_change_layout).setVisible(!isAsyncTaskRunning.get() && !galleryView.isEmpty());
 		return true;
 	}
 
@@ -299,6 +324,17 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				return true;
 			case R.id.action_cancel:
 				asyncTask.cancel(true);
+				return true;
+			case R.id.action_change_layout:
+				if ("List".contentEquals(item.getTitle())) {
+					galleryView.setSpanCount(1);
+					item.setIcon(R.drawable.ic_grid);
+					item.setTitle("Grid");
+				} else {
+					galleryView.setSpanCount(2);
+					item.setIcon(R.drawable.ic_list);
+					item.setTitle("List");
+				}
 				return true;
 		}
 		return super.onOptionsItemSelected(item);
@@ -331,7 +367,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 					}
 				});
 				Set<String> paths = PreferenceManager.getDefaultSharedPreferences(this)
-				                                     .getStringSet("dirs", Collections.emptySet());
+				                                     .getStringSet("dirs", new ArraySet<>());
 				for (String path : paths) {
 					dirTreeView.checkDirs(path);
 				}
@@ -339,6 +375,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 						.setTitle("Select directories to scan:")
 						.setView(dirTreeView)
 						.setPositiveButton("OK", (dialog, which) -> {
+							for (String dir : selectedDirs) {
+								FileUtils.showSdcardDialogIfNeeded(this, dir);
+							}
 							PreferenceManager.getDefaultSharedPreferences(this).edit()
 							                 .putStringSet("dirs", selectedDirs)
 							                 .apply();
@@ -361,7 +400,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 				new AlertDialog.Builder(this)
 						.setTitle("Select directories to scan:")
 						.setView(dirTreeView)
-						.setPositiveButton("OK", (dialog, which) -> rescanImages(selectedDirs.toArray(new String[0])))
+						.setPositiveButton("OK", (dialog, which) -> {
+							for (String dir : selectedDirs) {
+								FileUtils.showSdcardDialogIfNeeded(this, dir);
+							}
+							rescanImages(selectedDirs.toArray(new String[0]));
+						})
 						.setNegativeButton("Cancel", null)
 						.show();
 				break;

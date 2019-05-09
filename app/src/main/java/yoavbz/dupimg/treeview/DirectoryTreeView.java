@@ -1,11 +1,13 @@
-package yoavbz.dupimg.utils;
+package yoavbz.dupimg.treeview;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import yoavbz.dupimg.MainActivity;
 
 import java.io.File;
 import java.util.List;
@@ -132,6 +134,8 @@ public class DirectoryTreeView extends RecyclerView {
 	private void removePrevItems(List<Directory> newDirectoryList, int position, int numberOfItemsAdded) {
 		for (int i = 0; i < numberOfItemsAdded; i++) {
 			// TODO: Does the next line helps?!
+			Log.d(MainActivity.TAG, "removePrevItems: Checking if next line is necessary, value should be true = " +
+					!newDirectoryList.get(position + 1).isExpanded());
 			newDirectoryList.get(position + 1).setExpanded(false);
 			newDirectoryList.remove(position + 1);
 		}

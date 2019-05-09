@@ -43,10 +43,8 @@ dependencies {
     implementation 'org.tensorflow:tensorflow-lite:1.10.0'
     implementation 'androidx.room:room-runtime:2.0.0-beta01'
     annotationProcessor 'androidx.room:room-compiler:2.0.0-beta01'
-    implementation 'com.bignerdranch.android:recyclerview-multiselect:0.2'
     implementation 'com.airbnb.android:lottie:2.7.0'
     debugImplementation 'com.amitshekhar.android:debug-db:1.0.4'
     implementation 'at.wirecube:additive_animations:1.6.2'
     implementation 'com.github.sevar83:indeterminate-checkbox:1.0.5@aar'
-    implementation 'com.muditsen.multilevelrecyclerview:multilevelview:1.0.0'
 }

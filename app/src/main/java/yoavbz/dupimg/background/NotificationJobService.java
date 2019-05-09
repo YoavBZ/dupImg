@@ -15,13 +15,12 @@ import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
-import yoavbz.dupimg.ImageClassifier;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
-import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 import java.util.Collections;

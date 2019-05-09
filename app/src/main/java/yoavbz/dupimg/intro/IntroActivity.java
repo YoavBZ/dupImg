@@ -1,10 +1,14 @@
 package yoavbz.dupimg.intro;
 
 import android.Manifest;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.ArraySet;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,6 +20,8 @@ import yoavbz.dupimg.intro.CustomFragments.AnimatedFragment;
 import yoavbz.dupimg.intro.CustomFragments.BackgroundMonitorFragment;
 import yoavbz.dupimg.intro.CustomFragments.PermissionFragment;
 import yoavbz.dupimg.intro.CustomFragments.SelectDirFragment;
+
+import java.util.Set;
 
 @SuppressWarnings("ConstantConditions")
 public class IntroActivity extends AppIntro {
@@ -54,7 +60,7 @@ public class IntroActivity extends AppIntro {
 		SliderPage backgroundMonitorSlide = new SliderPage();
 		backgroundMonitorSlide.setTitle("Background Monitor");
 		backgroundMonitorSlide.setDescription("Periodically scan your selected directories for duplications.\n" +
-				                                      "In case duplications have been found, " +
+				                                      "In case some duplications have been found, " +
 				                                      "a notification will be sent.");
 		backgroundMonitorSlide.setImageDrawable(R.drawable.monitor_notification);
 		backgroundMonitorSlide.setBgColor(Color.TRANSPARENT);
@@ -84,6 +90,26 @@ public class IntroActivity extends AppIntro {
 		                  DIRS_FRAGMENT_INDEX);
 		showSkipButton(false);
 		showSeparator(true);
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+		if (resultCode == RESULT_OK) {
+			Uri treeUri = data.getData();
+			if (treeUri != null) {
+				SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+				Set<String> uris = pref.getStringSet("STORAGE_URIS", new ArraySet<>());
+				uris.add(treeUri.toString());
+				pref.edit()
+				    .putStringSet("STORAGE_URIS", uris)
+				    .apply();
+				// After confirmation, update stored value of folder.
+				// Persist access permissions.
+				getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+						| Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+			}
+		}
+
 	}
 
 	@Override

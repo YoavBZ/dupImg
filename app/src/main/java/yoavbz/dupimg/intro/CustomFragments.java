@@ -1,12 +1,12 @@
 package yoavbz.dupimg.intro;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RawRes;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
@@ -22,8 +23,9 @@ import com.airbnb.lottie.LottieDrawable;
 import com.github.paolorotolo.appintro.AppIntroBaseFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.utils.Directory;
-import yoavbz.dupimg.utils.DirectoryTreeView;
+import yoavbz.dupimg.treeview.Directory;
+import yoavbz.dupimg.treeview.DirectoryTreeView;
+import yoavbz.dupimg.treeview.FileUtils;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,7 +35,7 @@ class CustomFragments {
 
 	public static class PermissionFragment extends AppIntroBaseFragment {
 
-		public static PermissionFragment newInstance(@NonNull SliderPage sliderPage) {
+		static PermissionFragment newInstance(@NonNull SliderPage sliderPage) {
 			PermissionFragment slide = new PermissionFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
@@ -60,6 +62,7 @@ class CustomFragments {
 			// Removing image from main layout
 			ImageView imageView = view.findViewById(com.github.paolorotolo.appintro.R.id.image);
 			view.removeViewAt(1);
+			ViewGroup.LayoutParams imageLayoutParams = ((LinearLayout) imageView.getParent()).getLayoutParams();
 			((LinearLayout) imageView.getParent()).removeAllViews();
 			// Constructing ConstraintLayout & LottieAnimationView
 			ConstraintLayout constraintLayout = new ConstraintLayout(getContext());
@@ -73,6 +76,7 @@ class CustomFragments {
 			// Adding image and animation to ConstraintLayout
 			constraintLayout.addView(animationView);
 			constraintLayout.addView(imageView);
+			constraintLayout.setLayoutParams(imageLayoutParams);
 			// Adding ConstraintLayout to main layout
 			view.addView(constraintLayout, 2);
 			// Setting constrains for ConstraintLayout
@@ -82,8 +86,8 @@ class CustomFragments {
 			constrains.connect(animationView.getId(), ConstraintSet.RIGHT, imageView.getId(), ConstraintSet.RIGHT);
 			constrains.connect(animationView.getId(), ConstraintSet.TOP, imageView.getId(), ConstraintSet.TOP);
 			constrains.connect(animationView.getId(), ConstraintSet.BOTTOM, imageView.getId(), ConstraintSet.BOTTOM);
-			constrains.setHorizontalBias(animationView.getId(), 0.878f);
-			constrains.setVerticalBias(animationView.getId(), 0.628f);
+			constrains.setHorizontalBias(animationView.getId(), 0.885f);
+			constrains.setVerticalBias(animationView.getId(), 0.734f);
 			constrains.applyTo(constraintLayout);
 
 			animationView.playAnimation();
@@ -98,7 +102,7 @@ class CustomFragments {
 
 	public static class SelectDirFragment extends AppIntroBaseFragment {
 
-		public static SelectDirFragment newInstance(SliderPage sliderPage) {
+		static SelectDirFragment newInstance(@NonNull SliderPage sliderPage) {
 			SelectDirFragment slide = new SelectDirFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
@@ -123,11 +127,7 @@ class CustomFragments {
 			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
 			desc.setTextSize(19f);
 
-			Button selectDirButton = new Button(getContext());
-			selectDirButton.setText("Select directories");
-			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(700, 190);
-			lp.gravity = Gravity.CENTER;
-			selectDirButton.setLayoutParams(lp);
+			AppCompatButton selectDirButton = (AppCompatButton) inflater.inflate(R.layout.select_dir_button, view, false);
 			selectDirButton.setOnClickListener(v -> {
 				DirectoryTreeView dirTreeView = new DirectoryTreeView(getContext());
 				Set<String> selectedDirs = new HashSet<>();
@@ -142,6 +142,9 @@ class CustomFragments {
 						.setTitle("Select directories to scan:")
 						.setView(dirTreeView)
 						.setPositiveButton("OK", (dialog, which) -> {
+							for (String dir : selectedDirs) {
+								FileUtils.showSdcardDialogIfNeeded(getActivity(), dir);
+							}
 							((IntroActivity) getActivity()).getPager().goToNextSlide();
 							PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
 							                 .putStringSet("dirs", selectedDirs)
@@ -163,7 +166,7 @@ class CustomFragments {
 
 	public static class BackgroundMonitorFragment extends AppIntroBaseFragment {
 
-		public static BackgroundMonitorFragment newInstance(@NonNull SliderPage sliderPage) {
+		static BackgroundMonitorFragment newInstance(@NonNull SliderPage sliderPage) {
 			BackgroundMonitorFragment slide = new BackgroundMonitorFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());
@@ -188,7 +191,8 @@ class CustomFragments {
 			TextView desc = view.findViewById(com.github.paolorotolo.appintro.R.id.description);
 			desc.setTextSize(19f);
 
-			SwitchCompat monitorSwitch = (SwitchCompat) getLayoutInflater().inflate(R.layout.background_switch, null);
+			SwitchCompat monitorSwitch = (SwitchCompat) inflater.inflate(R.layout.background_switch, null);
+			monitorSwitch.setTextColor(Color.WHITE);
 			monitorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
 				PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
 				                 .putBoolean("isJobSchedule", isChecked)
@@ -209,15 +213,15 @@ class CustomFragments {
 
 	public static class AnimatedFragment extends AppIntroBaseFragment {
 
-		public static final String ARG_DESC_SIZE = "desc_size";
-		public static final String ARG_ANIMATION = "animation";
+		static final String ARG_DESC_SIZE = "desc_size";
+		static final String ARG_ANIMATION = "animation";
 
 		@RawRes
 		private int animationId;
 		private LottieAnimationView animationView;
 		private float descSize;
 
-		public static AnimatedFragment newInstance(@NonNull AnimatedSliderPage sliderPage) {
+		static AnimatedFragment newInstance(@NonNull AnimatedSliderPage sliderPage) {
 			AnimatedFragment fragment = new AnimatedFragment();
 			Bundle args = new Bundle();
 			args.putString(ARG_TITLE, sliderPage.getTitleString());

@@ -16,12 +16,11 @@ import at.wirecube.additiveanimations.additive_animator.AdditiveAnimator;
 import at.wirecube.additiveanimations.additive_animator.AnimationEndListener;
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
-import yoavbz.dupimg.ImageClassifier;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
-import yoavbz.dupimg.models.Image;
 
 import java.io.File;
 import java.lang.ref.WeakReference;
@@ -311,7 +310,6 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 		if (activity != null) {
 			// Handling menu items
 			activity.isAsyncTaskRunning.compareAndSet(true, false);
-			activity.invalidateOptionsMenu();
 			// Hiding preview
 			if (animation != null) {
 				activity.findViewById(R.id.preview).setVisibility(View.GONE);
@@ -321,6 +319,7 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 			activity.textView.setText(activity.getString(R.string.got_an_error));
 			activity.textView.setVisibility(View.VISIBLE);
 			activity.progressBar.setVisibility(View.GONE);
+			activity.invalidateOptionsMenu();
 		}
 	}
 }

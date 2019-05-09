@@ -1,4 +1,4 @@
-package yoavbz.dupimg.models;
+package yoavbz.dupimg;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -15,10 +15,10 @@ import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import org.apache.commons.math3.ml.clustering.Clusterable;
-import yoavbz.dupimg.ImageClassifier;
-import yoavbz.dupimg.MainActivity;
+import yoavbz.dupimg.background.ImageClassifier;
 import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
+import yoavbz.dupimg.treeview.FileUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -146,7 +146,7 @@ public class Image implements Parcelable, Clusterable {
 
 	public void delete(Context context) {
 		ImageDao dao = ImageDatabase.getAppDatabase(context).imageDao();
-		if (new File(path).delete()) {
+		if (FileUtils.deleteFile(context, new File(path))) {
 			dao.delete(this);
 			Log.d(MainActivity.TAG, "Image: Deleted " + toString());
 		} else {

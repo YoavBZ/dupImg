@@ -21,8 +21,8 @@ import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 

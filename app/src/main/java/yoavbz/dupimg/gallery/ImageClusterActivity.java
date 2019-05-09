@@ -16,11 +16,11 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.adapters.CustomViewPager;
 import yoavbz.dupimg.gallery.adapters.HorizontalListAdapter;
 import yoavbz.dupimg.gallery.adapters.ViewPagerAdapter;
-import yoavbz.dupimg.models.Image;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;

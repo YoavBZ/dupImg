@@ -14,9 +14,9 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestOptions;
 import org.apache.commons.math3.ml.clustering.Cluster;
+import yoavbz.dupimg.Image;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.GalleryView;
-import yoavbz.dupimg.models.Image;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

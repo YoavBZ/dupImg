@@ -1,4 +1,4 @@
-package yoavbz.dupimg.utils;
+package yoavbz.dupimg.treeview;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -13,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.buildware.widget.indeterm.IndeterminateCheckBox;
 import yoavbz.dupimg.R;
-import yoavbz.dupimg.utils.Directory.DirState;
+import yoavbz.dupimg.treeview.Directory.DirState;
 
 import java.io.File;
 import java.util.ArrayList;
