@@ -3,91 +3,31 @@ package yoavbz.dupimg.treeview;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.UriPermission;
 import android.net.Uri;
-import android.os.Environment;
-import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.documentfile.provider.DocumentFile;
-import yoavbz.dupimg.R;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Set;
+import java.util.List;
+
+import yoavbz.dupimg.R;
 
 import static yoavbz.dupimg.MainActivity.SELECT_SD_ROOT_CODE;
-import static yoavbz.dupimg.MainActivity.TAG;
 
 public class FileUtils {
-
-	/**
-	 * Returns all available SD-Cards in the system (include emulated)
-	 *
-	 * @return paths to all available SD-Cards in the system (include emulated)
-	 * @see <a href="https://github.com/TeamAmaze/AmazeFileManager">AmazeFileManager repo</a>
-	 */
-	public static ArrayList<File> getStorageDirectories(Context context) {
-		final ArrayList<File> paths = new ArrayList<>();
-		for (File externalFileDir : context.getExternalFilesDirs("external")) {
-			if (externalFileDir != null) {
-				int index = externalFileDir.getAbsolutePath().lastIndexOf("/Android/data");
-				if (index < 0) {
-					Log.w(TAG, "Unexpected external file dir: " + externalFileDir.getAbsolutePath());
-				} else {
-					File file = new File(externalFileDir.getAbsolutePath().substring(0, index));
-					if (!paths.contains(file) && file.canRead() && file.isDirectory()) {
-						paths.add(file);
-					}
-				}
-			}
-		}
-		if (paths.isEmpty()) {
-			paths.add(new File("/storage/sdcard1"));
-		}
-		File usb = getUsbDrive();
-		if (usb != null && !paths.contains(usb)) {
-			paths.add(usb);
-		}
-		return paths;
-	}
-
-	@Nullable
-	private static File getUsbDrive() {
-		File parent = new File("/storage");
-
-		try {
-			for (File f : parent.listFiles()) {
-				if (f.exists() && f.getName().toLowerCase().contains("usb") && f.canExecute()) {
-					return f;
-				}
-			}
-		} catch (Exception ignored) {
-		}
-		String sdcard = Environment.getExternalStorageDirectory().getPath();
-		parent = new File(sdcard + "/usbStorage");
-		if (parent.exists() && parent.canExecute()) {
-			return parent;
-		}
-		parent = new File(sdcard + "/usb_storage");
-		if (parent.exists() && parent.canExecute()) {
-			return parent;
-		}
-
-		return null;
-	}
 
 	public static boolean deleteFile(Context context, File file) {
 		if (file.delete()) {
 			return true;
 		}
 		DocumentFile document = getDocumentFile(context, file);
-		return document.delete();
+		return document != null && document.delete();
 	}
 
 	/**
@@ -98,11 +38,10 @@ public class FileUtils {
 	 * @return The DocumentFile
 	 */
 	public static DocumentFile getDocumentFile(Context context, File file) {
-		Set<String> uris = PreferenceManager.getDefaultSharedPreferences(context)
-		                                    .getStringSet("STORAGE_URIS", Collections.emptySet());
-		for (String s : uris) {
-			Uri treeUri = Uri.parse(s);
-			// Starting with root of storage
+		final List<UriPermission> persistedUriPermissions = context.getContentResolver().getPersistedUriPermissions();
+		for (UriPermission uriPermission : persistedUriPermissions) {
+			final Uri treeUri = uriPermission.getUri();
+			// Starting with the storage root
 			DocumentFile document = DocumentFile.fromTreeUri(context, treeUri);
 			// Finding the correct Uri from the set
 
@@ -123,8 +62,8 @@ public class FileUtils {
 
 	public static void showSdcardDialogIfNeeded(@NonNull Activity activity, String path) {
 		File file = new File(path);
-		if (!file.canWrite()) {
-//		if (!file.canWrite() && !FileUtils.getDocumentFile(activity, file).canWrite()) {
+		DocumentFile documentFile = getDocumentFile(activity, file);
+		if ((documentFile != null && !documentFile.canWrite()) || !file.canWrite()) {
 			FileUtils.sdcardGuideDialog(activity, file);
 		}
 	}

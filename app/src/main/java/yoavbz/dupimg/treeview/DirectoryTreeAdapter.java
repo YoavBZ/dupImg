@@ -33,7 +33,7 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 		super();
 		this.context = directoryTreeView.getContext();
 		this.directoryTreeView = directoryTreeView;
-		for (File dir : FileUtils.getStorageDirectories(context)) {
+		for (String dir : StorageUtil.getStorageDirectories(context)) {
 			directories.add(new Directory(dir));
 		}
 	}
