@@ -9,24 +9,32 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import at.wirecube.additiveanimations.additive_animator.AdditiveAnimator;
-import at.wirecube.additiveanimations.additive_animator.AnimationEndListener;
+
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
+
+import java.io.File;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import at.wirecube.additiveanimations.additive_animator.AdditiveAnimator;
+import at.wirecube.additiveanimations.additive_animator.AnimationEndListener;
 import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
-
-import java.io.File;
-import java.lang.ref.WeakReference;
-import java.util.*;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static yoavbz.dupimg.MainActivity.TAG;
 
@@ -35,7 +43,7 @@ public class ClassificationTask extends AsyncTask<String, Void, List<Cluster<Ima
 	private final int NOTIFICATION_ID = 1;
 	private final WeakReference<MainActivity> weakReference;
 	private Notification.Builder mBuilder;
-	private AtomicBoolean isPreviewing = new AtomicBoolean(false);
+	private final AtomicBoolean isPreviewing = new AtomicBoolean(false);
 	private AdditiveAnimator animation;
 	private int scanned = 0;
 	private int total = 0;

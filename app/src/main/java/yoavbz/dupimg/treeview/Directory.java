@@ -12,25 +12,22 @@ import static yoavbz.dupimg.treeview.Directory.DirState.PARTIAL;
 
 public class Directory {
 
-	private static FileFilter dirFilter = file -> file.canRead() && file.isDirectory() && !file.isHidden();
+	private static final FileFilter dirFilter = file -> file.canRead() && file.isDirectory() && !file.isHidden();
 	private static OnDirStateChangeListener listener;
-	private String name;
-	private File dir;
+	private final File dirFile;
+	private final int level;
 	private Directory parent;
 	private List<Directory> children;
-	private int level;
 	private boolean expanded = false;
 	private DirState state = DirState.NONE;
 
-	public Directory(@NonNull File dir) {
-		this.dir = dir;
-		name = dir.getPath();
+	public Directory(@NonNull String dir) {
+		this.dirFile = new File(dir);
 		level = 0;
 	}
 
-	public Directory(@NonNull File dir, @NonNull Directory parent) {
-		this.dir = dir;
-		name = dir.getName();
+	public Directory(@NonNull File dirFile, @NonNull Directory parent) {
+		this.dirFile = dirFile;
 		this.parent = parent;
 		this.level = parent.level + 1;
 	}
@@ -54,16 +51,12 @@ public class Directory {
 	public List<Directory> getChildren() {
 		if (children == null) {
 			children = new ArrayList<>();
-			for (File f : dir.listFiles(dirFilter)) {
+			for (File f : dirFile.listFiles(dirFilter)) {
 				children.add(new Directory(f, this));
 			}
-			children.sort(Comparator.comparing(Directory::getName));
+			children.sort(Comparator.comparing(Directory::toString));
 		}
 		return children;
-	}
-
-	public String getName() {
-		return name;
 	}
 
 	public DirState getState() {
@@ -119,7 +112,13 @@ public class Directory {
 	}
 
 	public File getFile() {
-		return dir;
+		return dirFile;
+	}
+
+	@Override
+	@NonNull
+	public String toString() {
+		return level == 0 ? dirFile.getAbsolutePath() : dirFile.getName();
 	}
 
 	public enum DirState {

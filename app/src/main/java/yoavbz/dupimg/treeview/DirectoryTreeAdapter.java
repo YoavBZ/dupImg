@@ -9,15 +9,19 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
-import com.buildware.widget.indeterm.IndeterminateCheckBox;
-import yoavbz.dupimg.R;
-import yoavbz.dupimg.treeview.Directory.DirState;
 
-import java.io.File;
+import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.buildware.widget.indeterm.IndeterminateCheckBox;
+
 import java.util.ArrayList;
 import java.util.List;
+
+import hendrawd.storageutil.library.StorageUtil;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.treeview.Directory.DirState;
 
 public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdapter.DirHolder> {
 
@@ -45,11 +49,11 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 	public void onBindViewHolder(@NonNull DirHolder holder, int position) {
 		Directory directory = directories.get(position);
 
-		holder.dirName.setText(directory.getName());
+		holder.dirName.setText(directory.toString());
 		Drawable icon;
 		if (directory.getLevel() == 0) {
 			holder.checkbox.setVisibility(View.GONE);
-			icon = context.getDrawable(R.drawable.ic_sd_card);
+			icon = ContextCompat.getDrawable(context, R.drawable.ic_sd_card);
 		} else {
 			// Setting checkBox according to state, preventing infinite recursive calls
 			holder.checkbox.setOnStateChangedListener(null);
@@ -66,7 +70,7 @@ public class DirectoryTreeAdapter extends RecyclerView.Adapter<DirectoryTreeAdap
 				// Updating current dir and children (if expanded)
 				notifyItemRangeChanged(pos, getLastChildIndex(dir));
 			});
-			icon = context.getDrawable(R.drawable.ic_folder);
+			icon = ContextCompat.getDrawable(context, R.drawable.ic_folder);
 		}
 		holder.icon.setImageDrawable(icon);
 

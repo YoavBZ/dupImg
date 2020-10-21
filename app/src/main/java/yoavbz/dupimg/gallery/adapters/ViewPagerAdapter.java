@@ -7,12 +7,14 @@ import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.PagerAdapter;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
@@ -21,36 +23,36 @@ import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.github.chrisbanes.photoview.PhotoViewAttacher;
-import yoavbz.dupimg.Image;
-import yoavbz.dupimg.R;
 
-import java.util.ArrayList;
+import java.util.List;
+
+import yoavbz.dupimg.R;
 
 /**
  * The type View pager adapter.
  */
 public class ViewPagerAdapter extends PagerAdapter {
 
-	private AppCompatActivity activity;
-	private ArrayList<Image> mDataSet;
+	private final AppCompatActivity activity;
+	private final List<String> paths;
 	private boolean hideHorizontalList = true;
-	private Toolbar toolbar;
-	private RecyclerView imagesHorizontalList;
+	private final Toolbar toolbar;
+	private final RecyclerView imagesHorizontalList;
 	private String transition;
 
 	/**
 	 * Instantiates a new View pager adapter.
 	 *
 	 * @param activity             the activity
-	 * @param dataSet              the images
+	 * @param paths                the images
 	 * @param toolbar              the toolbar
 	 * @param imagesHorizontalList the images horizontal list
 	 * @param transition           the transition name
 	 */
-	public ViewPagerAdapter(AppCompatActivity activity, ArrayList<Image> dataSet, Toolbar toolbar, RecyclerView
+	public ViewPagerAdapter(AppCompatActivity activity, List<String> paths, Toolbar toolbar, RecyclerView
 			imagesHorizontalList, String transition) {
 		this.activity = activity;
-		this.mDataSet = dataSet;
+		this.paths = paths;
 		this.toolbar = toolbar;
 		this.imagesHorizontalList = imagesHorizontalList;
 		this.transition = transition;
@@ -58,7 +60,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 
 	@Override
 	public int getCount() {
-		return mDataSet.size();
+		return paths.size();
 	}
 
 	@Override
@@ -70,13 +72,13 @@ public class ViewPagerAdapter extends PagerAdapter {
 	@Override
 	public Object instantiateItem(@NonNull ViewGroup container, int position) {
 		View itemView = activity.getLayoutInflater().inflate(R.layout.pager_item, container, false);
-		Image image = mDataSet.get(position);
+		String imagePath = paths.get(position);
 		PhotoView photoView = itemView.findViewById(R.id.image);
 		if (position == 0 && transition != null) {
 			// Starting transition when loading is finished (happens only once for first cluster image)
 			photoView.setTransitionName(transition);
 			Glide.with(activity)
-			     .load(image.getPath())
+			     .load(imagePath)
 			     .apply(RequestOptions.noAnimation())
 			     .listener(new RequestListener<Drawable>() {
 				     @Override
@@ -98,7 +100,7 @@ public class ViewPagerAdapter extends PagerAdapter {
 		} else {
 			// Default image loading
 			Glide.with(activity)
-			     .load(image.getPath())
+			     .load(imagePath)
 			     .into(photoView);
 		}
 		// Setting OnPhotoTapListener to show/hide the imagesHorizontalList

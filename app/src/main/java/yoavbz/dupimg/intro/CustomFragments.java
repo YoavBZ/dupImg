@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RawRes;
@@ -18,17 +19,19 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
+
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
 import com.github.paolorotolo.appintro.AppIntroBaseFragment;
 import com.github.paolorotolo.appintro.model.SliderPage;
+
+import java.util.HashSet;
+import java.util.Set;
+
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.treeview.Directory;
 import yoavbz.dupimg.treeview.DirectoryTreeView;
 import yoavbz.dupimg.treeview.FileUtils;
-
-import java.util.HashSet;
-import java.util.Set;
 
 @SuppressWarnings("ConstantConditions")
 class CustomFragments {
@@ -87,7 +90,7 @@ class CustomFragments {
 			constrains.connect(animationView.getId(), ConstraintSet.TOP, imageView.getId(), ConstraintSet.TOP);
 			constrains.connect(animationView.getId(), ConstraintSet.BOTTOM, imageView.getId(), ConstraintSet.BOTTOM);
 			constrains.setHorizontalBias(animationView.getId(), 0.885f);
-			constrains.setVerticalBias(animationView.getId(), 0.734f);
+			constrains.setVerticalBias(animationView.getId(), 0.66f);
 			constrains.applyTo(constraintLayout);
 
 			animationView.playAnimation();

@@ -7,27 +7,32 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestOptions;
+
 import org.apache.commons.math3.ml.clustering.Cluster;
-import yoavbz.dupimg.Image;
-import yoavbz.dupimg.R;
-import yoavbz.dupimg.gallery.GalleryView;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import yoavbz.dupimg.Image;
+import yoavbz.dupimg.R;
+import yoavbz.dupimg.gallery.GalleryView;
 
 public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.ViewHolder> {
 
 	@SuppressLint("SimpleDateFormat")
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
-	private ArrayList<Cluster<Image>> clusters;
-	private Context context;
+	private static final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+	private final ArrayList<Cluster<Image>> clusters;
+	private final Context context;
 	private GalleryView.OnClusterClickListener clickListener;
 	private int height;
 	private int width;
@@ -96,7 +101,10 @@ public class GridImagesAdapter extends RecyclerView.Adapter<GridImagesAdapter.Vi
 			itemView.setOnClickListener(view -> {
 				if (clickListener != null) {
 					List<Image> cluster = clusters.get(getAdapterPosition()).getPoints();
-					clickListener.onClusterClick(cluster, clusterThumbnail);
+					List<String> paths = cluster.stream()
+					                            .map(Image::getPath)
+					                            .collect(Collectors.toList());
+					clickListener.onClusterClick(paths, clusterThumbnail);
 				}
 			});
 		}

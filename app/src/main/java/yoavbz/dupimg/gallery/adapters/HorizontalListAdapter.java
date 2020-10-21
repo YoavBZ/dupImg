@@ -7,39 +7,42 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import yoavbz.dupimg.Image;
-import yoavbz.dupimg.R;
 
 import java.util.ArrayList;
+import java.util.List;
+
+import yoavbz.dupimg.R;
 
 /**
  * The type Horizontal list adapters.
  */
 public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAdapter.ViewHolder> {
 
-	private final ArrayList<Image> images;
+	private final List<String> paths;
 	private final AppCompatActivity activity;
 	private final OnImageClickListener clickListener;
+	private final ArrayList<String> toDelete;
 	private int currentPosition = 0;
-	private ArrayList<Image> toDelete;
 
 	/**
 	 * Instantiates a new Horizontal list adapters.
 	 *
 	 * @param activity      The activity
-	 * @param images        The list images
+	 * @param paths         The list images
 	 * @param clickListener The click listener for the images
 	 * @param toDelete      Reference to the list of images to delete (selected images)
 	 */
-	public HorizontalListAdapter(AppCompatActivity activity, ArrayList<Image> images, OnImageClickListener clickListener,
-	                             ArrayList<Image> toDelete) {
+	public HorizontalListAdapter(AppCompatActivity activity, List<String> paths, OnImageClickListener clickListener,
+	                             ArrayList<String> toDelete) {
 		this.activity = activity;
-		this.images = images;
+		this.paths = paths;
 		this.clickListener = clickListener;
 		this.toDelete = toDelete;
 	}
@@ -52,10 +55,10 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 	@Override
 	public void onBindViewHolder(@NonNull final HorizontalListAdapter.ViewHolder holder, final int position) {
-		holder.image = images.get(position);
+		holder.imagePath = paths.get(position);
 
 		Glide.with(activity)
-		     .load(holder.image.getPath())
+		     .load(holder.imagePath)
 		     .apply(new RequestOptions().placeholder(R.drawable.gallery_placeholder))
 		     .into(holder.thumbnail);
 
@@ -66,7 +69,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 	@Override
 	public int getItemCount() {
-		return images.size();
+		return paths.size();
 	}
 
 	public void setSelectedItem(int position) {
@@ -85,7 +88,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 		ImageView thumbnail;
 		CheckBox checkbox;
-		Image image;
+		String imagePath;
 
 		ViewHolder(View layout) {
 			super(layout);
@@ -95,7 +98,7 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 
 		void updateViews() {
 			// Set checkbox state according to selection
-			checkbox.setChecked(toDelete.contains(image));
+			checkbox.setChecked(toDelete.contains(imagePath));
 		}
 
 		void updateThumbnailFilter(int position) {
@@ -115,13 +118,13 @@ public class HorizontalListAdapter extends RecyclerView.Adapter<HorizontalListAd
 		void updateListener(int position) {
 			// Set listeners
 			thumbnail.setOnClickListener(view -> {
-				if (!toDelete.contains(image)) {
+				if (!toDelete.contains(imagePath)) {
 					// Select holder
-					toDelete.add(image);
+					toDelete.add(imagePath);
 					checkbox.setChecked(true);
 				} else {
 					// Deselect holder
-					toDelete.remove(image);
+					toDelete.remove(imagePath);
 					checkbox.setChecked(false);
 				}
 				activity.invalidateOptionsMenu();

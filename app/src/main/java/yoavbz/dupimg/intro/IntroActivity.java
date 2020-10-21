@@ -10,20 +10,22 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.ArraySet;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+
 import com.github.paolorotolo.appintro.AppIntro;
 import com.github.paolorotolo.appintro.model.SliderPage;
+
+import java.util.Set;
+
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.intro.CustomFragments.AnimatedFragment;
 import yoavbz.dupimg.intro.CustomFragments.BackgroundMonitorFragment;
 import yoavbz.dupimg.intro.CustomFragments.PermissionFragment;
 import yoavbz.dupimg.intro.CustomFragments.SelectDirFragment;
 
-import java.util.Set;
-
-@SuppressWarnings("ConstantConditions")
 public class IntroActivity extends AppIntro {
 
 	private static final int DIRS_FRAGMENT_INDEX = 2;
@@ -94,6 +96,7 @@ public class IntroActivity extends AppIntro {
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
 		if (resultCode == RESULT_OK) {
 			Uri treeUri = data.getData();
 			if (treeUri != null) {

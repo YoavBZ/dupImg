@@ -1,40 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
-		xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 		xmlns:tools="http://schemas.android.com/tools"
 		package="yoavbz.dupimg">
 
-	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
 	<application
+			android:name=".MainApplication"
 			android:allowBackup="false"
-			tools:replace="android:allowBackup"
-			android:label="@string/app_name"
 			android:icon="@mipmap/ic_launcher"
+			android:label="@string/app_name"
+			android:requestLegacyExternalStorage="true"
 			android:roundIcon="@mipmap/ic_launcher_round"
 			android:theme="@style/AppTheme"
-			android:name=".MainApplication">
+			tools:replace="android:allowBackup">
 
 		<activity
 				android:name="yoavbz.dupimg.MainActivity"
 				android:label="@string/app_name"
 				android:theme="@style/AppTheme.NoActionBar">
 			<intent-filter>
-				<action android:name="android.intent.action.MAIN"/>
-				<category android:name="android.intent.category.LAUNCHER"/>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 		</activity>
 
-		<activity android:name="yoavbz.dupimg.gallery.ImageClusterActivity"
-				android:noHistory="true"
-				android:autoRemoveFromRecents="true"/>
+		<activity
+				android:name="yoavbz.dupimg.gallery.ImageClusterActivity"
+				android:autoRemoveFromRecents="true"
+				android:noHistory="true" />
 
-		<activity android:name="yoavbz.dupimg.intro.IntroActivity"/>
+		<activity android:name="yoavbz.dupimg.intro.IntroActivity" />
 
-		<service android:name=".background.NotificationJobService"
-				android:permission="android.permission.BIND_JOB_SERVICE"/>
+		<service
+				android:name=".background.NotificationJobService"
+				android:permission="android.permission.BIND_JOB_SERVICE" />
 	</application>
 
 </manifest>

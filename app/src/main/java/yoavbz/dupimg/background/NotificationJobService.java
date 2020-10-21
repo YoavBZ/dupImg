@@ -10,11 +10,20 @@ import android.graphics.Bitmap;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
@@ -22,14 +31,9 @@ import yoavbz.dupimg.database.ImageDao;
 import yoavbz.dupimg.database.ImageDatabase;
 import yoavbz.dupimg.gallery.ImageClusterActivity;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
 public class NotificationJobService extends JobService {
 
-	private NotificationManager mNotifyManager;
+	private NotificationManager notificationManager;
 	private ImageDao db;
 	private Thread thread;
 
@@ -42,7 +46,7 @@ public class NotificationJobService extends JobService {
 	@Override
 	public boolean onStartJob(JobParameters params) {
 		Log.d(MainActivity.TAG, "NotificationJobService: onStartJob");
-		mNotifyManager = getSystemService(NotificationManager.class);
+		notificationManager = getSystemService(NotificationManager.class);
 		thread = new Thread(() -> {
 			createNotificationChannel();
 			boolean updateUi = false;
@@ -116,29 +120,28 @@ public class NotificationJobService extends JobService {
 		return newImages;
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	private List<String> getLocalImages() {
-		Set dirs = PreferenceManager.getDefaultSharedPreferences(this)
-		                            .getStringSet("dirs", Collections.emptySet());
+		Set<String> dirs = PreferenceManager.getDefaultSharedPreferences(this)
+		                                    .getStringSet("dirs", Collections.emptySet());
 		return ClassificationTask.fetchLocalImages((String[]) dirs.toArray(new String[0]));
 	}
 
 	private void processClusters(@NonNull List<Cluster<Image>> clusters, NotificationCompat.Builder builder) {
 		for (Cluster<Image> cluster : clusters) {
-			List<Image> images = cluster.getPoints();
+			List<String> paths = cluster.getPoints().stream().map(Image::getPath).collect(Collectors.toList());
 			Intent intent = new Intent(this, ImageClusterActivity.class);
-			intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) images);
+			intent.putStringArrayListExtra("IMAGES", (ArrayList<String>) paths);
 			int id = (int) SystemClock.uptimeMillis();
 			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
-			Image previewImg = images.get(0);
+			Image previewImg = cluster.getPoints().get(0);
 			Bitmap orientedBitmap = previewImg.getOrientedBitmap();
 			builder.setContentIntent(pendingIntent)
-			       .setContentTitle("Found " + images.size() + " new duplicates!")
+			       .setContentTitle("Found " + paths.size() + " new duplicates!")
 			       .setLargeIcon(orientedBitmap)
 			       .setStyle(new NotificationCompat.BigPictureStyle()
 					                 .bigPicture(orientedBitmap)
 					                 .bigLargeIcon(null));
-			mNotifyManager.notify(id, builder.build());
+			notificationManager.notify(id, builder.build());
 		}
 	}
 
@@ -148,7 +151,7 @@ public class NotificationJobService extends JobService {
 		                                                                  NotificationManager.IMPORTANCE_HIGH);
 		notificationChannel.setDescription("Notifications from the background scanning service.");
 
-		mNotifyManager.createNotificationChannel(notificationChannel);
+		notificationManager.createNotificationChannel(notificationChannel);
 	}
 
 	@Override

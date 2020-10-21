@@ -4,7 +4,12 @@ import android.app.ActivityOptions;
 import android.app.NotificationManager;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.*;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -18,6 +23,7 @@ import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
@@ -27,10 +33,20 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 import com.bumptech.glide.Glide;
 import com.google.android.material.navigation.NavigationView;
+
 import org.apache.commons.math3.ml.clustering.Cluster;
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import yoavbz.dupimg.background.ClassificationTask;
 import yoavbz.dupimg.background.NotificationJobService;
 import yoavbz.dupimg.gallery.GalleryView;
@@ -39,13 +55,6 @@ import yoavbz.dupimg.intro.IntroActivity;
 import yoavbz.dupimg.treeview.Directory;
 import yoavbz.dupimg.treeview.DirectoryTreeView;
 import yoavbz.dupimg.treeview.FileUtils;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
 		GalleryView.OnClusterClickListener {
@@ -70,8 +79,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	// Utility Objects
 	public NotificationManager notificationManager;
 	private ClassificationTask asyncTask;
-	private SharedPreferences pref;
-	private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+	private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			if (ACTION_UPDATE_UI.equals(intent.getAction()) && !isCustomScan.get() && !isAsyncTaskRunning.get()) {
@@ -79,6 +87,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 			}
 		}
 	};
+	private SharedPreferences pref;
 
 	/**
 	 * Launching IntoActivity in case of first use, otherwise continuing normally.
@@ -199,14 +208,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	}
 
 	/**
-	 * @param cluster          The image list of the clicked cluster
+	 * @param clusterPaths     The image list of the clicked cluster
 	 * @param clusterThumbnail The thumbnail of the clicked cluster
 	 */
 	@Override
-	public void onClusterClick(List<Image> cluster, ImageView clusterThumbnail) {
+	public void onClusterClick(List<String> clusterPaths, ImageView clusterThumbnail) {
 		// Starting ImageClusterActivity with correct parameters
 		Intent intent = new Intent(this, ImageClusterActivity.class);
-		intent.putParcelableArrayListExtra("IMAGES", (ArrayList<Image>) cluster);
+		intent.putStringArrayListExtra("IMAGES", (ArrayList<String>) clusterPaths);
 		// Handling transition animation
 		intent.putExtra("transition", String.valueOf(clusterThumbnail.getId()));
 		clusterThumbnail.setTransitionName(String.valueOf(clusterThumbnail.getId()));
@@ -224,6 +233,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	 */
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
 		switch (requestCode) {
 			case IMAGE_CLUSTER_ACTIVITY_CODE:
 				if (resultCode == RESULT_OK) {
@@ -351,7 +361,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 	 * @return true to display the item as selected
 	 */
 	@Override
-	@SuppressWarnings("ConstantConditions")
 	public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 		// Handle navigation view item clicks here.
 		switch (item.getItemId()) {

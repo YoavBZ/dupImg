@@ -1,6 +1,7 @@
 package yoavbz.dupimg.intro;
 
 import androidx.annotation.RawRes;
+
 import com.github.paolorotolo.appintro.model.SliderPage;
 
 class AnimatedSliderPage extends SliderPage {

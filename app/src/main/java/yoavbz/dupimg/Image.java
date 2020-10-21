@@ -8,17 +8,15 @@ import android.graphics.Matrix;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
+
 import org.apache.commons.math3.ml.clustering.Clusterable;
-import yoavbz.dupimg.background.ImageClassifier;
-import yoavbz.dupimg.database.ImageDao;
-import yoavbz.dupimg.database.ImageDatabase;
-import yoavbz.dupimg.treeview.FileUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,18 +24,34 @@ import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
-@SuppressWarnings("ConstantConditions")
+import yoavbz.dupimg.background.ImageClassifier;
+import yoavbz.dupimg.database.ImageDao;
+import yoavbz.dupimg.database.ImageDatabase;
+import yoavbz.dupimg.treeview.FileUtils;
+
 @Entity(tableName = "images")
 public class Image implements Parcelable, Clusterable {
 
+	public static final Creator<Image> CREATOR = new Creator<Image>() {
+		public Image createFromParcel(Parcel in) {
+			return new Image(in);
+		}
+
+		public Image[] newArray(int size) {
+			return new Image[size];
+		}
+	};
+
 	@Ignore
 	@SuppressLint("SimpleDateFormat")
-	private static DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+	private static final DateFormat dateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+
 	@PrimaryKey
 	@NonNull
 	private String path;
 	private long dateTaken;
 	private double[] point;
+
 	public Image() {
 	}
 
@@ -62,6 +76,16 @@ public class Image implements Parcelable, Clusterable {
 		point = in.createDoubleArray();
 	}
 
+	public static void delete(String path, Context context) {
+		ImageDao dao = ImageDatabase.getAppDatabase(context).imageDao();
+		if (FileUtils.deleteFile(context, new File(path))) {
+			dao.delete(path);
+			Log.d(MainActivity.TAG, "Image: Deleted " + path);
+		} else {
+			Log.e(MainActivity.TAG, "Image: Couldn't delete path " + path);
+		}
+	}
+
 	@Nullable
 	public Bitmap getOrientedBitmap() {
 		try {
@@ -83,12 +107,10 @@ public class Image implements Parcelable, Clusterable {
 			}
 
 			// Constructing a Bitmap
-			Bitmap bitmap = getScaledBitmap();
-			// Rotating
+			Bitmap bitmap = BitmapFactory.decodeFile(path);
 			Matrix rotationMatrix = new Matrix();
 			rotationMatrix.postRotate(rotation);
-			return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(),
-			                           rotationMatrix, false);
+			return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotationMatrix, false);
 		} catch (Exception e) {
 			Log.e(MainActivity.TAG, "Got an exception while constructing oriented Bitmap", e);
 		}
@@ -144,18 +166,6 @@ public class Image implements Parcelable, Clusterable {
 		return Bitmap.createScaledBitmap(bitmap, 224, 224, false);
 	}
 
-	public void delete(Context context) {
-		ImageDao dao = ImageDatabase.getAppDatabase(context).imageDao();
-		if (FileUtils.deleteFile(context, new File(path))) {
-			dao.delete(this);
-			Log.d(MainActivity.TAG, "Image: Deleted " + toString());
-		} else {
-			Log.e(MainActivity.TAG, "Image: Couldn't delete path " + toString());
-		}
-	}
-
-	// --- Clusterable interface functions ---
-
 	@Override
 	public double[] getPoint() {
 		return point;
@@ -164,18 +174,6 @@ public class Image implements Parcelable, Clusterable {
 	public void setPoint(double[] point) {
 		this.point = point;
 	}
-
-	// --- Parcelable interface functions ---
-
-	public static final Creator<Image> CREATOR = new Creator<Image>() {
-		public Image createFromParcel(Parcel in) {
-			return new Image(in);
-		}
-
-		public Image[] newArray(int size) {
-			return new Image[size];
-		}
-	};
 
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {

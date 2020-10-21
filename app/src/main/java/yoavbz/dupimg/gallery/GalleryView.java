@@ -10,29 +10,29 @@ import android.util.AttributeSet;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
+
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import org.apache.commons.math3.ml.clustering.Cluster;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import yoavbz.dupimg.Image;
 import yoavbz.dupimg.MainActivity;
 import yoavbz.dupimg.R;
 import yoavbz.dupimg.gallery.adapters.GridImagesAdapter;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@SuppressWarnings("ConstantConditions")
 public class GalleryView extends RecyclerView {
 
 	private final MainActivity activity;
-	private GridImagesAdapter mAdapter;
-	private ArrayList<Cluster<Image>> imageClusters = new ArrayList<>();
-	// Scaling
-//	private ScaleGestureDetector scaleDetector;
-	private TransitionSet layoutTransition = new TransitionSet()
+	private final ArrayList<Cluster<Image>> imageClusters = new ArrayList<>();
+	private final TransitionSet layoutTransition = new TransitionSet()
 			.addTransition(new ChangeBounds())
 			.addTransition(new Fade(Fade.IN));
+	private GridImagesAdapter adapter;
 
 	/**
 	 * Instantiates a new Media gallery view.
@@ -51,8 +51,8 @@ public class GalleryView extends RecyclerView {
 	 */
 	public void init() {
 		setLayoutManager(new GridLayoutManager(activity, 2));
-		mAdapter = new GridImagesAdapter(activity, imageClusters);
-		setAdapter(mAdapter);
+		adapter = new GridImagesAdapter(activity, imageClusters);
+		setAdapter(adapter);
 		setSpanCount(2);
 	}
 
@@ -69,7 +69,7 @@ public class GalleryView extends RecyclerView {
 		} else {
 			activity.textView.setText(activity.getString(R.string.no_duplicates));
 		}
-		mAdapter.notifyDataSetChanged();
+		adapter.notifyDataSetChanged();
 	}
 
 	public boolean isEmpty() {
@@ -82,7 +82,7 @@ public class GalleryView extends RecyclerView {
 	 * @param onImageClickListener the on imageView click listener
 	 */
 	public void setOnImageClickListener(OnClusterClickListener onImageClickListener) {
-		mAdapter.setOnImageClickListener(onImageClickListener);
+		adapter.setOnImageClickListener(onImageClickListener);
 	}
 
 	/**
@@ -96,11 +96,11 @@ public class GalleryView extends RecyclerView {
 		activity.getWindowManager().getDefaultDisplay().getSize(sizes);
 		int width = sizes.x / spanCount;
 		int height = 900 / spanCount;
-		mAdapter.setImageSize(width, height);
+		adapter.setImageSize(width, height);
 		// Updating LayoutManager
 		TransitionManager.beginDelayedTransition(this, layoutTransition);
 		((GridLayoutManager) getLayoutManager()).setSpanCount(spanCount);
-		mAdapter.notifyDataSetChanged();
+		adapter.notifyDataSetChanged();
 	}
 
 	public List<Image> getAllImages() {
@@ -113,9 +113,9 @@ public class GalleryView extends RecyclerView {
 
 	public interface OnClusterClickListener {
 		/**
-		 * @param cluster          The image list of the clicked cluster
+		 * @param clusterPaths     The image list of the clicked cluster
 		 * @param clusterThumbnail The thumbnail of the clicked cluster
 		 */
-		void onClusterClick(List<Image> cluster, ImageView clusterThumbnail);
+		void onClusterClick(List<String> clusterPaths, ImageView clusterThumbnail);
 	}
 }
