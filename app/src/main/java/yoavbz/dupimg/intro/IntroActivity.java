@@ -129,7 +129,7 @@ public class IntroActivity extends AppIntro {
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 		for (int result : grantResults) {
-			if (result == PackageManager.PERMISSION_DENIED) {
+			if (result != PackageManager.PERMISSION_GRANTED) {
 				Toast.makeText(this, "Cannot launch app without permissions", Toast.LENGTH_LONG).show();
 				finish();
 			}
